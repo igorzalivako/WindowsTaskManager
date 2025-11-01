@@ -1,4 +1,4 @@
-#pragma once
+п»ї#pragma once
 
 #include <QMainWindow>
 #include <QTabWidget>
@@ -11,6 +11,8 @@
 #include <QGroupBox>
 #include <QFormLayout>
 #include <QSortFilterProxyModel>
+#include <QApplication.h>
+#include <QMessageBox>
 
 #include <QtCharts/QChartView>
 #include <QtCharts/QLineSeries>
@@ -21,6 +23,7 @@
 #include <memory>
 #include <IMonitor.h>
 #include "ProcessTableModel.h"
+#include <IProcessControl.h>
 
 class WinTop : public QMainWindow
 {
@@ -33,10 +36,14 @@ public:
 private slots:
     void updateData();
     void onProcessContextMenu(const QPoint& pos);
+    void onFilterLineEditTextChanged(const QString &text);
+    void killSelectedProcesses();
+    void showProcessDetails();
 
 private:
     void setupUI();
     std::unique_ptr<IMonitor> _monitor;
+    std::unique_ptr<IProcessControl> _processControl;
 	QTimer _updateTimer;
 
     QTabWidget* _tabWidget;
@@ -65,11 +72,11 @@ private:
     QLineEdit* _filterLineEdit;
     QTableView* _processTableView;
     
-    // Модели
+    // РњРѕРґРµР»Рё
     ProcessTableModel* _processModel;
     QSortFilterProxyModel* _proxyModel;
 
-    // Контекстное меню процесса
+    // РљРѕРЅС‚РµРєСЃС‚РЅРѕРµ РјРµРЅСЋ РїСЂРѕС†РµСЃСЃР°
     qint32 _selectedProcessID;
     QMenu* _processContextMenu;
     QAction* _killProcessAction;
@@ -77,4 +84,5 @@ private:
 
 
     void CreateProcessInfoContextMenu();
+    void showProcessDetailsDialog(quint32 pid);
 };

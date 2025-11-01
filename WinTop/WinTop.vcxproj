@@ -102,6 +102,7 @@
     <QtUic Include="WinTop.ui" />
     <QtMoc Include="WinTop.h" />
     <ClCompile Include="ProcessTableModel.cpp" />
+    <ClCompile Include="WindowsProcessController.cpp" />
     <ClCompile Include="WindowsSystemMonitor.cpp" />
     <ClCompile Include="WinTop.cpp" />
     <ClCompile Include="main.cpp" />
@@ -113,6 +114,7 @@
     <ClInclude Include="IMonitor.h" />
     <QtMoc Include="ProcessTableModel.h" />
     <ClInclude Include="IProcessControl.h" />
+    <ClInclude Include="WindowsProcessController.h" />
     <ClInclude Include="WindowsSystemMonitor.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

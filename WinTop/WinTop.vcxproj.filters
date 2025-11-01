@@ -44,6 +44,9 @@
     <ClCompile Include="ProcessTableModel.cpp">
       <Filter>ui</Filter>
     </ClCompile>
+    <ClCompile Include="WindowsProcessController.cpp">
+      <Filter>platform\Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="WinTop.ui">
@@ -70,6 +73,9 @@
     </ClInclude>
     <ClInclude Include="IProcessControl.h">
       <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowsProcessController.h">
+      <Filter>platform\Windows</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

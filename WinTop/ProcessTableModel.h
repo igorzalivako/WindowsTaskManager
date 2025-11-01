@@ -3,6 +3,7 @@
 #include <QAbstractTableModel>
 #include <QList>
 #include "DataStructs.h"
+#include <IProcessControl.h>
 
 class ProcessTableModel : public QAbstractTableModel {
     Q_OBJECT
@@ -16,10 +17,14 @@ public:
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
     ProcessInfo getProcessByRow(int row) const;
 
+    void setProcessControl(IProcessControl* controller);
+
     void updateData(const QList<ProcessInfo>& data);
 
 private:
     QList<ProcessInfo> _processes;
+    IProcessControl* _processControl = nullptr;
+    mutable QHash<quint32, QIcon> _iconCache;
 };
 
 

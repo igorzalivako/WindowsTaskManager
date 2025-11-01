@@ -1,12 +1,14 @@
-#include "WinTop.h"
+﻿#include "WinTop.h"
 #include <WindowsSystemMonitor.h>
+#include <WindowsProcessController.h>
 
 WinTop::WinTop(QWidget *parent)
     : QMainWindow(parent)
 {
-	setupUI();
     _monitor = std::make_unique<WindowsSystemMonitor>();
+    _processControl = std::make_unique<WindowsProcessControl>();
     connect(&_updateTimer, &QTimer::timeout, this, &WinTop::updateData);
+    setupUI();
     _updateTimer.start(1000);
 }
 
@@ -75,9 +77,11 @@ void WinTop::setupUI()
     _filterLineEdit->setPlaceholderText("Filter...");
 
     _processTableView = new QTableView();
-
-    // ����������
+    _processTableView->setContextMenuPolicy(Qt::CustomContextMenu);
+    // Сортировка
     _processModel = new ProcessTableModel(this);
+    _processModel->setProcessControl(_processControl.get());
+
     _proxyModel = new QSortFilterProxyModel(this);
     _proxyModel->setSourceModel(_processModel);
     _proxyModel->setSortRole(Qt::UserRole);
@@ -85,10 +89,12 @@ void WinTop::setupUI()
     _processTableView->setModel(_proxyModel);
     _processTableView->setSortingEnabled(true);
 
+    connect(_filterLineEdit, &QLineEdit::textChanged, this, &WinTop::onFilterLineEditTextChanged);
+
     processLayout->addWidget(_filterLineEdit);
     processLayout->addWidget(_processTableView);
 
-    // ����������� ���� ��������
+    // Контекстное меню процесса
     CreateProcessInfoContextMenu();
 
     // === Add Tabs ===
@@ -102,7 +108,7 @@ void WinTop::setupUI()
 void WinTop::updateData() 
 {
     SystemInfo info = _monitor->getSystemInfo();
-    // ��������� �������
+    // Обновляем таблицу
     auto processes = _monitor->getProcesses();
     _processModel->updateData(processes);
 
@@ -117,7 +123,7 @@ void WinTop::updateData()
     _cpuAxisX->setRange(x - 100, x);
     _memoryAxisX->setRange(x - 100, x);
 
-    // ��������� �����
+    // Обновляем метки
     _osLabel->setText("Windows 10");
     _ramLabel->setText(QString("%1 / %2 GB").arg(info.usedMemory / 1024 / 1024 / 1024.0, 0, 'f', 1)
         .arg(info.totalMemory / 1024 / 1024 / 1024.0, 0, 'f', 1));
@@ -126,32 +132,96 @@ void WinTop::updateData()
 void WinTop::onProcessContextMenu(const QPoint& pos)
 {
     QModelIndex index = _processTableView->indexAt(pos);
-    if (!index.isValid())
-    {
-        return; // ���� �� �� ������
-    }
-
-    QModelIndex sourceIndex = _proxyModel->mapToSource(index);
-    int row = sourceIndex.row();
-
-    if (row < 0 || row >= _processModel->rowCount())
-    {
+    if (!index.isValid()) {
         return;
     }
 
-    _selectedProcessID = _processModel->
+    QModelIndex sourceIndex = _proxyModel->mapToSource(index);
+    ProcessInfo proc = _processModel->getProcessByRow(sourceIndex.row());
+
+    if (proc.pid == 0) {
+        return;
+    }
+
+    _selectedProcessID = proc.pid;
+
+    _processContextMenu->exec(_processTableView->viewport()->mapToGlobal(pos));
+}
+
+void WinTop::onFilterLineEditTextChanged(const QString &text)
+{
+    _proxyModel->setFilterKeyColumn(1);
+    _proxyModel->setFilterFixedString(text);
 }
 
 void WinTop::CreateProcessInfoContextMenu()
 {
     _processContextMenu = new QMenu(this);
-    _killProcessAction = new QAction("��������� �������", this);
-    _showDetailsAction = new QAction("�������� ��������", this);
+    _killProcessAction = new QAction("Завершить процесс", this);
+    _showDetailsAction = new QAction("Свойства процесса", this);
 
     _processContextMenu->addAction(_showDetailsAction);
     _processContextMenu->addAction(_killProcessAction);
 
     connect(_processTableView, &QTableView::customContextMenuRequested, this, &WinTop::onProcessContextMenu);
-    connect(_killProcessAction, &QAction::triggered, this, &WinTop::_killSelectedProcesses);
+    connect(_killProcessAction, &QAction::triggered, this, &WinTop::killSelectedProcesses);
     connect(_showDetailsAction, &QAction::triggered, this, &WinTop::showProcessDetails);
+}
+
+void WinTop::killSelectedProcesses()
+{
+    if (_selectedProcessID != 0) {
+        QMessageBox::StandardButton reply;
+        
+        QString procName;
+        QModelIndexList selected = _processTableView->selectionModel()->selectedRows();
+        if (!selected.isEmpty()) {
+            QModelIndex proxyIndex = selected.first();
+            QModelIndex sourceIndex = _proxyModel->mapToSource(proxyIndex);
+            procName = _processModel->getProcessByRow(sourceIndex.row()).name;
+        }
+        procName = "N/A";
+
+        reply = QMessageBox::question(this, "Подтверждение",
+            QString("Завершить процесс %1 (PID: %2)?").arg(procName).arg(_selectedProcessID),
+            QMessageBox::Yes | QMessageBox::No);
+
+        if (reply == QMessageBox::Yes) {
+            if (_processControl->killProcess(_selectedProcessID)) {
+                QMessageBox::information(this, "Успешно", "Процесс завершён.");
+            }
+            else {
+                QMessageBox::critical(this, "Ошибка", "Не удалось завершить процесс.");
+            }
+        }
+    }
+}
+
+void WinTop::showProcessDetails()
+{
+    if (_selectedProcessID != 0) {
+        showProcessDetailsDialog(_selectedProcessID);
+    }
+}
+
+void WinTop::showProcessDetailsDialog(quint32 pid) {
+    ProcessDetails details = _processControl.get()->getProcessDetails(pid);
+
+    QString info = QString(
+        "PID: %1\n"
+        "Имя: %2\n"
+        "Путь: %3\n"
+        "Родительский PID: %4\n"
+        "Загрузка ЦП: %5%\n"
+        "Память (Private): %6 MB\n"
+        "Рабочий набор: %7 MB"
+    ).arg(details.pid)
+        .arg(details.name)
+        .arg(details.path)
+        .arg(details.parentPID)
+        .arg(details.cpuUsage, 0, 'f', 2)
+        .arg(details.memoryUsage / 1024 / 1024)
+        .arg(details.workingSetSize / 1024 / 1024);
+
+    QMessageBox::information(this, "Свойства процесса", info);
 }

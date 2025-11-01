@@ -54,6 +54,21 @@ QVariant ProcessTableModel::data(const QModelIndex& index, int role) const {
             return QVariant();
         }
     }
+
+    if (role == Qt::DecorationRole && index.column() == 1) { // колонка с именем
+        if (_processControl) {
+            // Проверяем кэш
+            if (_iconCache.contains(proc.pid)) {
+                return _iconCache[proc.pid];
+            }
+
+            // Получаем иконку и кэшируем
+            QIcon icon = _processControl->getProcessIcon(proc.pid);
+            _iconCache[proc.pid] = icon;
+            return icon;
+        }
+    }
+
     return QVariant();
 }
 
@@ -78,13 +93,19 @@ QVariant ProcessTableModel::headerData(int section, Qt::Orientation orientation,
 ProcessInfo ProcessTableModel::getProcessByRow(int row) const
 {
     if (row < 0 || row >= _processes.size()) {
-        return ProcessInfo{}; // возвращаем пустой объект
+        return ProcessInfo{};
     }
     return _processes[row];
+}
+
+void ProcessTableModel::setProcessControl(IProcessControl* control)
+{
+    _processControl = control;
 }
 
 void ProcessTableModel::updateData(const QList<ProcessInfo>& data) {
     beginResetModel();
     _processes = data;
+    _iconCache.clear();
     endResetModel();
 }

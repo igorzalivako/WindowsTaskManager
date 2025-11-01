@@ -14,16 +14,11 @@ struct ProcessTimeInfo {
 	double cpu_usage = 0.0;
 };
 
-class WindowsSystemMonitor : public IMonitor, public IProcessControl
+class WindowsSystemMonitor : public IMonitor
 {
 public:
-	// IMonitor
 	SystemInfo getSystemInfo() override;
 	QList<ProcessInfo> getProcesses() override;
-
-	//IProcessControl
-	ProcessDetails getProcessDetails(quint32 pId) override;
-	bool killProcess(quint32 pId) override;
 
 	WindowsSystemMonitor() = default;
 	~WindowsSystemMonitor() override = default;
@@ -39,6 +34,4 @@ private:
 	bool calculateCpuUsage(double& cpu_usage);
 	bool calculateProcessCpuUsage(HANDLE _proc, ProcessTimeInfo& timeInfo, quint32 pId);
 	double computeCpuPercentage(const ProcessTimeInfo& old, const ProcessTimeInfo& current, qint64 elapsedMs);
-	QString getProcessPath(quint32 pid);
-	quint32 getParentPID(quint32 pid);
 };
