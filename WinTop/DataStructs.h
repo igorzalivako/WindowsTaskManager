@@ -14,13 +14,16 @@ struct SystemInfo
 struct ProcessInfo 
 {
 	quint32 pid = 0;
+	quint32 parentPID = 0;
 	QString name;
 	double cpuUsage = 0.0;
 	quint64 memoryUsage = 0;
 	QString status;
+	qint64 updateTimestamp = 0;
 };
 
-struct ProcessDetails {
+struct ProcessDetails 
+{
 	quint32 pid = 0;
 	QString name;
 	QString path;
@@ -28,4 +31,9 @@ struct ProcessDetails {
 	double cpuUsage = 0.0;
 	quint64 memoryUsage = 0;
 	quint64 workingSetSize = 0;
+};
+
+struct FlatProcessNode {
+	ProcessInfo info;
+	quint32 parentPID;
 };

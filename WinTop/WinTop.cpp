@@ -1,12 +1,14 @@
 ﻿#include "WinTop.h"
 #include <WindowsSystemMonitor.h>
 #include <WindowsProcessController.h>
+#include <WindowsProcessTreeBuilder.h>
 
 WinTop::WinTop(QWidget *parent)
     : QMainWindow(parent)
 {
     _monitor = std::make_unique<WindowsSystemMonitor>();
     _processControl = std::make_unique<WindowsProcessControl>();
+    _treeBuilder = std::make_unique<WindowsProcessTreeBuilder>();
     connect(&_updateTimer, &QTimer::timeout, this, &WinTop::updateData);
     setupUI();
     _updateTimer.start(1000);
@@ -94,12 +96,16 @@ void WinTop::setupUI()
     processLayout->addWidget(_filterLineEdit);
     processLayout->addWidget(_processTableView);
 
+    // Дерево процессов
+    createProcessTree();
+
     // Контекстное меню процесса
-    CreateProcessInfoContextMenu();
+    createProcessInfoContextMenu();
 
     // === Add Tabs ===
-    _tabWidget->addTab(_overviewTab, "Overview");
-    _tabWidget->addTab(_processesTab, "Processes");
+    _tabWidget->addTab(_overviewTab, "Обзор");
+    _tabWidget->addTab(_processesTab, "Процессы");
+    _tabWidget->addTab(_treeTab, "Дерево процессов");
 
     setCentralWidget(_tabWidget);
     setWindowTitle("WinTop");
@@ -111,6 +117,9 @@ void WinTop::updateData()
     // Обновляем таблицу
     auto processes = _monitor->getProcesses();
     _processModel->updateData(processes);
+
+    // Обновляем дерево
+    _processTreeModel->updateData(processes);
 
     static int x = 0;
     _cpuSeries->append(x, info.cpuUsage);
@@ -148,13 +157,51 @@ void WinTop::onProcessContextMenu(const QPoint& pos)
     _processContextMenu->exec(_processTableView->viewport()->mapToGlobal(pos));
 }
 
+// Новый слот для дерева
+void WinTop::onTreeContextMenu(const QPoint& pos) {
+    QModelIndex index = _processTreeView->indexAt(pos);
+    if (!index.isValid()) {
+        return; // клик не на строке
+    }
+
+    quint32 pid = getPIDFromTreeIndex(index);
+    if (pid == 0) {
+        return;
+    }
+
+    _selectedProcessID = pid; // используем общий PID
+
+    _processContextMenu->exec(_processTreeView->viewport()->mapToGlobal(pos));
+}
+
+// Вспомогательный метод
+quint32 WinTop::getPIDFromTreeIndex(const QModelIndex& index) {
+    if (!index.isValid()) {
+        return 0;
+    }
+
+    // Предположим, что PID хранится в колонке 1 (PID)
+    QModelIndex pidIndex = index.siblingAtColumn(1);
+    if (pidIndex.isValid()) {
+        return pidIndex.data().toUInt();
+    }
+
+    // Альтернатива: если PID хранится в колонке 0 в UserRole
+    QModelIndex nameIndex = index.siblingAtColumn(0);
+    if (nameIndex.isValid()) {
+        return nameIndex.data(Qt::UserRole + 1).toUInt();
+    }
+
+    return 0;
+}
+
 void WinTop::onFilterLineEditTextChanged(const QString &text)
 {
     _proxyModel->setFilterKeyColumn(1);
     _proxyModel->setFilterFixedString(text);
 }
 
-void WinTop::CreateProcessInfoContextMenu()
+void WinTop::createProcessInfoContextMenu()
 {
     _processContextMenu = new QMenu(this);
     _killProcessAction = new QAction("Завершить процесс", this);
@@ -164,8 +211,25 @@ void WinTop::CreateProcessInfoContextMenu()
     _processContextMenu->addAction(_killProcessAction);
 
     connect(_processTableView, &QTableView::customContextMenuRequested, this, &WinTop::onProcessContextMenu);
+    connect(_processTreeView, &QTreeView::customContextMenuRequested, this, &WinTop::onTreeContextMenu);
     connect(_killProcessAction, &QAction::triggered, this, &WinTop::killSelectedProcesses);
     connect(_showDetailsAction, &QAction::triggered, this, &WinTop::showProcessDetails);
+}
+
+void WinTop::createProcessTree() 
+{
+    _treeTab = new QWidget();
+    auto* treeLayout = new QVBoxLayout(_treeTab);
+
+    _processTreeView = new QTreeView();
+    _processTreeModel = new ProcessTreeModel(this);
+    _processTreeModel->setTreeBuilder(std::move(_treeBuilder)); // передаём билдер
+    _processTreeView->setModel(_processTreeModel);
+    _processTreeView->setAlternatingRowColors(true);
+    _processTreeView->setSortingEnabled(true);
+    _processTreeView->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    treeLayout->addWidget(_processTreeView);
 }
 
 void WinTop::killSelectedProcesses()

@@ -47,6 +47,15 @@
     <ClCompile Include="WindowsProcessController.cpp">
       <Filter>platform\Windows</Filter>
     </ClCompile>
+    <ClCompile Include="ProcessTreeModel.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessTree.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="WindowsProcessTreeBuilder.cpp">
+      <Filter>platform\Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="WinTop.ui">
@@ -58,6 +67,9 @@
       <Filter>ui</Filter>
     </QtMoc>
     <QtMoc Include="ProcessTableModel.h">
+      <Filter>ui</Filter>
+    </QtMoc>
+    <QtMoc Include="ProcessTreeModel.h">
       <Filter>ui</Filter>
     </QtMoc>
   </ItemGroup>
@@ -75,6 +87,15 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="WindowsProcessController.h">
+      <Filter>platform\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessTree.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="IProcessTreeBuilder.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowsProcessTreeBuilder.h">
       <Filter>platform\Windows</Filter>
     </ClInclude>
   </ItemGroup>

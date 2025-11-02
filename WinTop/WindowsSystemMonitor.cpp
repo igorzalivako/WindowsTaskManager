@@ -132,6 +132,7 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
         quint32 pid = entry.th32ProcessID;
         ProcessInfo info;
         info.pid = pid;
+        info.parentPID = entry.th32ParentProcessID;
         info.name = QString::fromWCharArray(entry.szExeFile);
 
         HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);

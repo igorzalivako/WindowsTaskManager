@@ -13,6 +13,7 @@
 #include <QSortFilterProxyModel>
 #include <QApplication.h>
 #include <QMessageBox>
+#include <QTreeView>
 
 #include <QtCharts/QChartView>
 #include <QtCharts/QLineSeries>
@@ -24,6 +25,8 @@
 #include <IMonitor.h>
 #include "ProcessTableModel.h"
 #include <IProcessControl.h>
+#include "IProcessTreeBuilder.h"
+#include "ProcessTreeModel.h"
 
 class WinTop : public QMainWindow
 {
@@ -37,6 +40,7 @@ private slots:
     void updateData();
     void onProcessContextMenu(const QPoint& pos);
     void onFilterLineEditTextChanged(const QString &text);
+    void onTreeContextMenu(const QPoint& pos);
     void killSelectedProcesses();
     void showProcessDetails();
 
@@ -44,7 +48,8 @@ private:
     void setupUI();
     std::unique_ptr<IMonitor> _monitor;
     std::unique_ptr<IProcessControl> _processControl;
-	QTimer _updateTimer;
+    std::unique_ptr<IProcessTreeBuilder> _treeBuilder;
+    QTimer _updateTimer;
 
     QTabWidget* _tabWidget;
     QWidget* _overviewTab;
@@ -82,7 +87,13 @@ private:
     QAction* _killProcessAction;
     QAction* _showDetailsAction;
 
+    // Дерево процессов
+    QWidget* _treeTab;
+    QTreeView* _processTreeView;
+    ProcessTreeModel* _processTreeModel;
 
-    void CreateProcessInfoContextMenu();
+    void createProcessInfoContextMenu();
+    void createProcessTree();
     void showProcessDetailsDialog(quint32 pid);
+    quint32 getPIDFromTreeIndex(const QModelIndex& index);
 };
