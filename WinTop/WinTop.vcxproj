@@ -66,8 +66,11 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
-      <AdditionalDependencies>Qt6Chartsd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Qt6Chartsd.lib;pdh.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <ClCompile>
+      <AdditionalModuleDependencies>%(AdditionalModuleDependencies)</AdditionalModuleDependencies>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="Configuration">
     <ClCompile>
@@ -101,10 +104,12 @@
     <QtRcc Include="WinTop.qrc" />
     <QtUic Include="WinTop.ui" />
     <QtMoc Include="WinTop.h" />
+    <ClCompile Include="ProcessDetailsDialog.cpp" />
     <ClCompile Include="ProcessTableModel.cpp" />
     <ClCompile Include="ProcessTree.cpp" />
     <ClCompile Include="ProcessTreeModel.cpp" />
-    <ClCompile Include="WindowsProcessController.cpp" />
+    <ClCompile Include="WindowsDiskMonitor.cpp" />
+    <ClCompile Include="WindowsProcessControl.cpp" />
     <ClCompile Include="WindowsProcessTreeBuilder.cpp" />
     <ClCompile Include="WindowsSystemMonitor.cpp" />
     <ClCompile Include="WinTop.cpp" />
@@ -114,13 +119,16 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DataStructs.h" />
+    <ClInclude Include="IDiskMonitor.h" />
     <ClInclude Include="IMonitor.h" />
     <QtMoc Include="ProcessTableModel.h" />
     <ClInclude Include="IProcessControl.h" />
     <QtMoc Include="ProcessTreeModel.h" />
     <ClInclude Include="IProcessTreeBuilder.h" />
+    <QtMoc Include="ProcessDetailsDialog.h" />
     <ClInclude Include="ProcessTree.h" />
-    <ClInclude Include="WindowsProcessController.h" />
+    <ClInclude Include="WindowsDiskMonitor.h" />
+    <ClInclude Include="WindowsProcessControl.h" />
     <ClInclude Include="WindowsProcessTreeBuilder.h" />
     <ClInclude Include="WindowsSystemMonitor.h" />
   </ItemGroup>

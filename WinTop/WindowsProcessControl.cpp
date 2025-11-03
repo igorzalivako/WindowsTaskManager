@@ -1,5 +1,7 @@
-#include "WindowsProcessController.h"
+п»ї#include "WindowsProcessControl.h"
 #include <TlHelp32.h>
+#include <winternl.h>
+#include <windows.h>
 
 const quint32 GRACEFUL_KILL_PROCESS_TIMEOUT = 3000;
 
@@ -40,12 +42,31 @@ quint32 WindowsProcessControl::getParentPID(quint32 pid) {
     return 0;
 }
 
-ProcessDetails WindowsProcessControl::getProcessDetails(quint32 pid) {
+ProcessDetails WindowsProcessControl::getProcessDetails(quint32 pid, const QList<ProcessInfo> processes) 
+{
     ProcessDetails details;
+    ProcessInfo info;
+    for (auto& processInfo : processes) 
+    {
+        if (processInfo.pid == pid) 
+        {
+            info = processInfo;
+        }
+    }
+
     details.pid = pid;
     details.path = getProcessPath(pid);
+    details.cpuUsage = info.cpuUsage;
+    details.memoryUsage = info.memoryUsage;
+    details.workingSetSize = info.workingSetSize;
+    details.name = info.name;
     details.parentPID = getParentPID(pid);
-    // Загрузка ЦП, память и т.д. могут быть получены отдельно
+    details.threadCount = getThreadCount(pid);
+    details.startTime = getStartTime(pid);
+    details.childProcessesCount = getChildProcessCount(pid, processes);
+
+    details.handleCount = getHandleCount(pid);
+
     return details;
 }
 
@@ -75,13 +96,13 @@ static QImage qimageFromHICON(HICON hIcon)
     if (!GetIconInfo(hIcon, &iconInfo))
         return QImage();
 
-    // Получим размеры
+    // РџРѕР»СѓС‡РёРј СЂР°Р·РјРµСЂС‹
     BITMAP bmColor = {};
     GetObject(iconInfo.hbmColor, sizeof(bmColor), &bmColor);
     const int w = bmColor.bmWidth;
     const int h = bmColor.bmHeight;
 
-    // Подготовим DIB секцию для извлечения пикселей в формате BGRA
+    // РџРѕРґРіРѕС‚РѕРІРёРј DIB СЃРµРєС†РёСЋ РґР»СЏ РёР·РІР»РµС‡РµРЅРёСЏ РїРёРєСЃРµР»РµР№ РІ С„РѕСЂРјР°С‚Рµ BGRA
     BITMAPINFO bmi = {};
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     bmi.bmiHeader.biWidth = w;
@@ -96,10 +117,10 @@ static QImage qimageFromHICON(HICON hIcon)
     HDC memdc = CreateCompatibleDC(hdc);
     HGDIOBJ oldBmp = SelectObject(memdc, dib);
 
-    // Растеризуем иконку в DIB
+    // Р Р°СЃС‚РµСЂРёР·СѓРµРј РёРєРѕРЅРєСѓ РІ DIB
     DrawIconEx(memdc, 0, 0, hIcon, w, h, 0, nullptr, DI_NORMAL);
 
-    // Копируем в QImage (формат RGBA8888 или premultiplied)
+    // РљРѕРїРёСЂСѓРµРј РІ QImage (С„РѕСЂРјР°С‚ RGBA8888 РёР»Рё premultiplied)
     QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
     if (img.isNull()) {
         SelectObject(memdc, oldBmp);
@@ -111,11 +132,11 @@ static QImage qimageFromHICON(HICON hIcon)
         return QImage();
     }
 
-    // bits сейчас в BGRA; QImage::Format_ARGB32_Premultiplied — тоже BGRA на little-endian,
-    // так что можно копировать напрямую.
+    // bits СЃРµР№С‡Р°СЃ РІ BGRA; QImage::Format_ARGB32_Premultiplied вЂ” С‚РѕР¶Рµ BGRA РЅР° little-endian,
+    // С‚Р°Рє С‡С‚Рѕ РјРѕР¶РЅРѕ РєРѕРїРёСЂРѕРІР°С‚СЊ РЅР°РїСЂСЏРјСѓСЋ.
     memcpy(img.bits(), bits, size_t(w) * size_t(h) * 4);
 
-    // Освобождение ресурсов
+    // РћСЃРІРѕР±РѕР¶РґРµРЅРёРµ СЂРµСЃСѓСЂСЃРѕРІ
     SelectObject(memdc, oldBmp);
     DeleteDC(memdc);
     DeleteObject(dib);
@@ -129,7 +150,7 @@ static QImage qimageFromHICON(HICON hIcon)
 
 QIcon getStandardExeIcon() {
     SHFILEINFOW sfi = { 0 };
-    // Используем пустую строку с флагом, чтобы получить иконку для .exe
+    // РСЃРїРѕР»СЊР·СѓРµРј РїСѓСЃС‚СѓСЋ СЃС‚СЂРѕРєСѓ СЃ С„Р»Р°РіРѕРј, С‡С‚РѕР±С‹ РїРѕР»СѓС‡РёС‚СЊ РёРєРѕРЅРєСѓ РґР»СЏ .exe
     if (SHGetFileInfoW(L"*.exe", FILE_ATTRIBUTE_NORMAL, &sfi, sizeof(sfi),
         SHGFI_ICON | SHGFI_USEFILEATTRIBUTES | SHGFI_SMALLICON)) {
         QImage img = qimageFromHICON(sfi.hIcon);
@@ -138,7 +159,7 @@ QIcon getStandardExeIcon() {
             return QIcon(QPixmap::fromImage(img));
         }
     }
-    return QIcon(); // если не удалось, возвращаем пустую
+    return QIcon(); // РµСЃР»Рё РЅРµ СѓРґР°Р»РѕСЃСЊ, РІРѕР·РІСЂР°С‰Р°РµРј РїСѓСЃС‚СѓСЋ
 }
 
 QIcon WindowsProcessControl::getProcessIcon(quint32 pId)
@@ -165,13 +186,13 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
     GetWindowThreadProcessId(hwnd, &pid);
 
     if (pid == (DWORD)lParam) {
-        // Проверим, является ли окно главным (не дочерним, не невидимым)
+        // РџСЂРѕРІРµСЂРёРј, СЏРІР»СЏРµС‚СЃСЏ Р»Рё РѕРєРЅРѕ РіР»Р°РІРЅС‹Рј (РЅРµ РґРѕС‡РµСЂРЅРёРј, РЅРµ РЅРµРІРёРґРёРјС‹Рј)
         if (GetParent(hwnd) == NULL && IsWindowVisible(hwnd)) {
-            *(HWND*)lParam = hwnd; // Сохраняем дескриптор
-            return FALSE; // Нашли, останавливаем перечисление
+            *(HWND*)lParam = hwnd; // РЎРѕС…СЂР°РЅСЏРµРј РґРµСЃРєСЂРёРїС‚РѕСЂ
+            return FALSE; // РќР°С€Р»Рё, РѕСЃС‚Р°РЅР°РІР»РёРІР°РµРј РїРµСЂРµС‡РёСЃР»РµРЅРёРµ
         }
     }
-    return TRUE; // Продолжаем искать
+    return TRUE; // РџСЂРѕРґРѕР»Р¶Р°РµРј РёСЃРєР°С‚СЊ
 }
 
 bool WindowsProcessControl::killProcessGracefully(quint32 pId) {
@@ -191,5 +212,79 @@ bool WindowsProcessControl::killProcessGracefully(quint32 pId) {
         }
     }
 
-    return false; // Окно не найдено или процесс не завершился
+    return false;
+}
+
+quint32 WindowsProcessControl::getThreadCount(quint32 pid) {
+    quint32 count = 0;
+    HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (h_snap != INVALID_HANDLE_VALUE) {
+        THREADENTRY32 te = { 0 };
+        te.dwSize = sizeof(te);
+        if (Thread32First(h_snap, &te)) {
+            do {
+                if (te.th32OwnerProcessID == pid) {
+                    count++;
+                }
+            } while (Thread32Next(h_snap, &te));
+        }
+        CloseHandle(h_snap);
+    }
+    return count;
+}
+
+QDateTime WindowsProcessControl::getStartTime(quint32 pid) {
+    QDateTime dt;
+    HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+    if (h_proc) {
+        FILETIME creation_time, exit_time, kernel_time, user_time;
+        if (GetProcessTimes(h_proc, &creation_time, &exit_time, &kernel_time, &user_time)) {
+            // РџСЂРµРѕР±СЂР°Р·СѓРµРј FILETIME РІ QDateTime
+            ULARGE_INTEGER uli;
+            uli.LowPart = creation_time.dwLowDateTime;
+            uli.HighPart = creation_time.dwHighDateTime;
+            // FILETIME - РІСЂРµРјСЏ РІ 100-РЅР°РЅРѕСЃРµРєСѓРЅРґРЅС‹С… РёРЅС‚РµСЂРІР°Р»Р°С… СЃ 1601-01-01 (UTC)
+            // QDateTime РѕР¶РёРґР°РµС‚ РјРёР»Р»РёСЃРµРєСѓРЅРґС‹ СЃ 1970-01-01 (Unix epoch)
+            qint64 epoch_offset = 11644473600LL * 10000000LL; // СЂР°Р·РЅРёС†Р° РјРµР¶РґСѓ 1601 Рё 1970 РІ 100ns
+            qint64 unix_time_100ns = uli.QuadPart - epoch_offset;
+            qint64 unix_time_ms = unix_time_100ns / 10000;
+            dt = QDateTime::fromMSecsSinceEpoch(unix_time_ms);
+        }
+        CloseHandle(h_proc);
+    }
+    return dt;
+}
+
+quint32 WindowsProcessControl::getChildProcessCount(quint32 pid, const QList<ProcessInfo>& allProcesses) {
+    quint32 count = 0;
+    for (const auto& proc : allProcesses) {
+        if (proc.parentPID == pid) {
+            count++;
+        }
+    }
+    return count;
+}
+
+quint32 WindowsProcessControl::getHandleCount(quint32 pid) {
+    quint32 count = 0;
+    HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+    if (h_proc) {
+        DWORD handle_count = 0;
+        if (GetProcessHandleCount(h_proc, &handle_count)) {
+            count = handle_count;
+        }
+        CloseHandle(h_proc);
+    }
+    return count;
+}
+
+int WindowsProcessControl::getPriority(quint32 pid) {
+    int priority = 0;
+    HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+    if (h_proc) {
+        int priority_class = GetPriorityClass(h_proc);
+        priority = priority_class;
+        CloseHandle(h_proc);
+    }
+    return priority;
 }

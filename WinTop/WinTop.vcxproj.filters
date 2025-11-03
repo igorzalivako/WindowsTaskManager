@@ -44,7 +44,7 @@
     <ClCompile Include="ProcessTableModel.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="WindowsProcessController.cpp">
+    <ClCompile Include="WindowsProcessControl.cpp">
       <Filter>platform\Windows</Filter>
     </ClCompile>
     <ClCompile Include="ProcessTreeModel.cpp">
@@ -54,6 +54,12 @@
       <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="WindowsProcessTreeBuilder.cpp">
+      <Filter>platform\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessDetailsDialog.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="WindowsDiskMonitor.cpp">
       <Filter>platform\Windows</Filter>
     </ClCompile>
   </ItemGroup>
@@ -72,6 +78,9 @@
     <QtMoc Include="ProcessTreeModel.h">
       <Filter>ui</Filter>
     </QtMoc>
+    <QtMoc Include="ProcessDetailsDialog.h">
+      <Filter>ui</Filter>
+    </QtMoc>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DataStructs.h">
@@ -86,7 +95,7 @@
     <ClInclude Include="IProcessControl.h">
       <Filter>core</Filter>
     </ClInclude>
-    <ClInclude Include="WindowsProcessController.h">
+    <ClInclude Include="WindowsProcessControl.h">
       <Filter>platform\Windows</Filter>
     </ClInclude>
     <ClInclude Include="ProcessTree.h">
@@ -96,6 +105,12 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="WindowsProcessTreeBuilder.h">
+      <Filter>platform\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="IDiskMonitor.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowsDiskMonitor.h">
       <Filter>platform\Windows</Filter>
     </ClInclude>
   </ItemGroup>

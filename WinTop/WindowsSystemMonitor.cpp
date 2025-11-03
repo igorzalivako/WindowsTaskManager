@@ -141,6 +141,7 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
             PROCESS_MEMORY_COUNTERS_EX pmc;
             if (GetProcessMemoryInfo(h_proc, (PROCESS_MEMORY_COUNTERS*) &pmc, sizeof(pmc))) {
                 info.memoryUsage = pmc.PrivateUsage;
+                info.workingSetSize = pmc.WorkingSetSize;
             }
 
             // CPU Time

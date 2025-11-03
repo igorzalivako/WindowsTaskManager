@@ -1,7 +1,8 @@
 ﻿#include "WinTop.h"
 #include <WindowsSystemMonitor.h>
-#include <WindowsProcessController.h>
+#include <WindowsProcessControl.h>
 #include <WindowsProcessTreeBuilder.h>
+#include <WindowsDiskMonitor.h>
 
 WinTop::WinTop(QWidget *parent)
     : QMainWindow(parent)
@@ -9,6 +10,7 @@ WinTop::WinTop(QWidget *parent)
     _monitor = std::make_unique<WindowsSystemMonitor>();
     _processControl = std::make_unique<WindowsProcessControl>();
     _treeBuilder = std::make_unique<WindowsProcessTreeBuilder>();
+    _diskMonitor = std::make_unique<WindowsDiskMonitor>();
     connect(&_updateTimer, &QTimer::timeout, this, &WinTop::updateData);
     setupUI();
     _updateTimer.start(1000);
@@ -102,16 +104,19 @@ void WinTop::setupUI()
     // Контекстное меню процесса
     createProcessInfoContextMenu();
 
+    createPerformanceTab();
+
     // === Add Tabs ===
     _tabWidget->addTab(_overviewTab, "Обзор");
     _tabWidget->addTab(_processesTab, "Процессы");
     _tabWidget->addTab(_treeTab, "Дерево процессов");
+    _tabWidget->addTab(_performanceTab, "Производительность");
 
     setCentralWidget(_tabWidget);
     setWindowTitle("WinTop");
 }
 
-void WinTop::updateData() 
+QList<ProcessInfo> WinTop::updateData() 
 {
     SystemInfo info = _monitor->getSystemInfo();
     // Обновляем таблицу
@@ -136,6 +141,50 @@ void WinTop::updateData()
     _osLabel->setText("Windows 10");
     _ramLabel->setText(QString("%1 / %2 GB").arg(info.usedMemory / 1024 / 1024 / 1024.0, 0, 'f', 1)
         .arg(info.totalMemory / 1024 / 1024 / 1024.0, 0, 'f', 1));
+
+    // === Обновляем данные диска ===
+    auto diskInfo = _diskMonitor->getDiskInfo();
+    auto processDiskInfo = _diskMonitor->getProcessDiskInfo();
+
+    // Обновляем график диска
+    static int diskX = 0;
+    double totalRead = 0, totalWrite = 0;
+    for (const auto& disk : diskInfo) {
+        totalRead += disk.readBytesPerSec;
+        totalWrite += disk.writeBytesPerSec;
+    }
+    _diskSeriesRead->append(diskX, totalRead / 1024 / 1024); // в МБ/с
+    _diskSeriesWrite->append(diskX, totalWrite / 1024 / 1024);
+    diskX++;
+    if (_diskSeriesRead->count() > 100) {
+        _diskSeriesRead->removePoints(0, 1);
+        _diskSeriesWrite->removePoints(0, 1);
+    }
+    _diskAxisX->setRange(diskX - 100, diskX);
+
+    // === Обновляем информацию о диске ===
+    QString diskInfoText = "Диски:\n";
+    for (const auto& disk : diskInfo) {
+        double totalGB = disk.totalBytes / 1024.0 / 1024.0 / 1024.0;
+        double freeGB = disk.freeBytes / 1024.0 / 1024.0 / 1024.0;
+        double usedGB = totalGB - freeGB;
+        diskInfoText += QString("%1: %2 ГБ / %3 ГБ (использовано %4 ГБ)\n")
+            .arg(disk.name)
+            .arg(usedGB, 0, 'f', 2)
+            .arg(totalGB, 0, 'f', 2)
+            .arg(usedGB, 0, 'f', 2);
+    }
+    diskInfoText += QString("\nОбщий I/O: Чтение %1 МБ/с, Запись %2 МБ/с")
+        .arg(totalRead / 1024 / 1024, 0, 'f', 2)
+        .arg(totalWrite / 1024 / 1024, 0, 'f', 2);
+
+    // Найдём QLabel и обновим текст
+    auto* diskInfoLabel = _diskInfoWidget->findChild<QLabel*>("diskInfoLabel");
+    if (diskInfoLabel) {
+        diskInfoLabel->setText(diskInfoText);
+    }
+
+    return processes;
 }
 
 void WinTop::onProcessContextMenu(const QPoint& pos)
@@ -180,13 +229,11 @@ quint32 WinTop::getPIDFromTreeIndex(const QModelIndex& index) {
         return 0;
     }
 
-    // Предположим, что PID хранится в колонке 1 (PID)
     QModelIndex pidIndex = index.siblingAtColumn(1);
     if (pidIndex.isValid()) {
         return pidIndex.data().toUInt();
     }
 
-    // Альтернатива: если PID хранится в колонке 0 в UserRole
     QModelIndex nameIndex = index.siblingAtColumn(0);
     if (nameIndex.isValid()) {
         return nameIndex.data(Qt::UserRole + 1).toUInt();
@@ -224,12 +271,113 @@ void WinTop::createProcessTree()
     _processTreeView = new QTreeView();
     _processTreeModel = new ProcessTreeModel(this);
     _processTreeModel->setTreeBuilder(std::move(_treeBuilder)); // передаём билдер
-    _processTreeView->setModel(_processTreeModel);
+    _processTreeModel->setProcessControl(_processControl.get());
+    _treeProxyModel = new QSortFilterProxyModel(this);
+    _treeProxyModel->setSourceModel(_processTreeModel);
+    _treeProxyModel->setSortRole(Qt::UserRole);
+    _processTreeView->setModel(_treeProxyModel);
     _processTreeView->setAlternatingRowColors(true);
     _processTreeView->setSortingEnabled(true);
     _processTreeView->setContextMenuPolicy(Qt::CustomContextMenu);
 
     treeLayout->addWidget(_processTreeView);
+}
+
+void WinTop::createPerformanceTab()
+{
+    _performanceTab = new QWidget();
+    auto* perfLayout = new QHBoxLayout(_performanceTab); // горизонтальный layout
+
+    // Боковая панель (список ресурсов)
+    _performanceTree = new QTreeWidget();
+    _performanceTree->setHeaderHidden(true);
+    _performanceTree->setMaximumWidth(150);
+
+    auto* cpuItem = new QTreeWidgetItem(_performanceTree);
+    cpuItem->setText(0, "ЦП");
+    cpuItem->setData(0, Qt::UserRole, "cpu");
+
+    auto* memoryItem = new QTreeWidgetItem(_performanceTree);
+    memoryItem->setText(0, "Память");
+    memoryItem->setData(0, Qt::UserRole, "memory");
+
+    auto* diskItem = new QTreeWidgetItem(_performanceTree);
+    diskItem->setText(0, "Диск");
+    diskItem->setData(0, Qt::UserRole, "disk");
+
+    auto* networkItem = new QTreeWidgetItem(_performanceTree);
+    networkItem->setText(0, "Сеть");
+    networkItem->setData(0, Qt::UserRole, "network");
+
+    // ... можно добавить GPU, если реализуешь
+
+    perfLayout->addWidget(_performanceTree);
+
+    // Основная область (графики)
+    _performanceStack = new QStackedWidget();
+
+    // === Страница диска ===
+    _diskPerformancePage = new QWidget();
+    auto* diskPerfLayout = new QVBoxLayout(_diskPerformancePage);
+
+    // График
+    _diskChart = new QChart();
+    _diskSeriesRead = new QLineSeries();
+    _diskSeriesRead->setName("Чтение");
+    _diskSeriesWrite = new QLineSeries();
+    _diskSeriesWrite->setName("Запись");
+    _diskChart->addSeries(_diskSeriesRead);
+    _diskChart->addSeries(_diskSeriesWrite);
+    _diskChart->legend()->show();
+
+    _diskAxisX = new QValueAxis;
+    _diskAxisY = new QValueAxis;
+    _diskAxisX->setRange(0, 100);
+    _diskAxisY->setRange(0, 100);
+    _diskChart->addAxis(_diskAxisX, Qt::AlignBottom);
+    _diskChart->addAxis(_diskAxisY, Qt::AlignLeft);
+    _diskSeriesRead->attachAxis(_diskAxisX);
+    _diskSeriesRead->attachAxis(_diskAxisY);
+    _diskSeriesWrite->attachAxis(_diskAxisX);
+    _diskSeriesWrite->attachAxis(_diskAxisY);
+
+    _diskChartView = new QChartView(_diskChart);
+    _diskChartView->setRenderHint(QPainter::Antialiasing);
+
+    diskPerfLayout->addWidget(_diskChartView);
+
+    // Информация о диске (внизу)
+    _diskInfoWidget = new QWidget();
+    auto* diskInfoLayout = new QVBoxLayout(_diskInfoWidget);
+
+    // QLabel для отображения информации
+    auto* diskInfoLabel = new QLabel("Информация о диске появится здесь...");
+    diskInfoLabel->setObjectName("diskInfoLabel"); // для удобства поиска
+    diskInfoLayout->addWidget(diskInfoLabel);
+
+    diskPerfLayout->addWidget(_diskInfoWidget);
+
+    _performanceStack->addWidget(_diskPerformancePage);
+
+    // ... можно добавить другие страницы: CPU, Memory, Network
+
+    perfLayout->addWidget(_performanceStack);
+
+    // Подключаем выбор элемента в дереве
+    connect(_performanceTree, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* current, QTreeWidgetItem* previous) {
+        Q_UNUSED(previous);
+        if (current) {
+            QString resource = current->data(0, Qt::UserRole).toString();
+            if (resource == "disk") {
+                _performanceStack->setCurrentWidget(_diskPerformancePage);
+            }
+            // ... другие ресурсы
+        }
+        });
+
+    // Устанавливаем первый элемент как текущий
+    _performanceTree->setCurrentItem(_performanceTree->topLevelItem(0));
+
 }
 
 void WinTop::killSelectedProcesses()
@@ -269,23 +417,12 @@ void WinTop::showProcessDetails()
 }
 
 void WinTop::showProcessDetailsDialog(quint32 pid) {
-    ProcessDetails details = _processControl.get()->getProcessDetails(pid);
+    QList<ProcessInfo> processes = updateData();
+    
+    ProcessDetails details = _processControl.get()->getProcessDetails(pid, processes);
 
-    QString info = QString(
-        "PID: %1\n"
-        "Имя: %2\n"
-        "Путь: %3\n"
-        "Родительский PID: %4\n"
-        "Загрузка ЦП: %5%\n"
-        "Память (Private): %6 MB\n"
-        "Рабочий набор: %7 MB"
-    ).arg(details.pid)
-        .arg(details.name)
-        .arg(details.path)
-        .arg(details.parentPID)
-        .arg(details.cpuUsage, 0, 'f', 2)
-        .arg(details.memoryUsage / 1024 / 1024)
-        .arg(details.workingSetSize / 1024 / 1024);
-
-    QMessageBox::information(this, "Свойства процесса", info);
+    // Создаём и показываем диалог
+    ProcessDetailsDialog dialog(this);
+    dialog.setProcessDetails(details);
+    dialog.exec();
 }

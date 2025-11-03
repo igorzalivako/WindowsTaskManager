@@ -1,7 +1,8 @@
-#pragma once
+﻿#pragma once
 
 #include<qstring.h>
 #include<qlist.h>
+#include <QDateTime>
 
 struct SystemInfo 
 {
@@ -18,6 +19,7 @@ struct ProcessInfo
 	QString name;
 	double cpuUsage = 0.0;
 	quint64 memoryUsage = 0;
+	quint64 workingSetSize = 0;
 	QString status;
 	qint64 updateTimestamp = 0;
 };
@@ -31,9 +33,31 @@ struct ProcessDetails
 	double cpuUsage = 0.0;
 	quint64 memoryUsage = 0;
 	quint64 workingSetSize = 0;
+
+	quint64 threadCount = 0;
+	QDateTime startTime;
+	quint32 childProcessesCount = 0;
+	quint32 handleCount = 0;
+};
+
+struct DiskInfo {
+	QString name; // например, "C:"
+	quint64 totalBytes = 0;
+	quint64 freeBytes = 0;
+	double readBytesPerSec = 0.0;
+	double writeBytesPerSec = 0.0;
+	double ioBytesPerSec = 0.0; // сумма
+};
+
+struct ProcessDiskInfo {
+	quint32 pid = 0;
+	quint64 bytesRead = 0;
+	quint64 bytesWritten = 0;
+	quint64 readOperations = 0;
+	quint64 writeOperations = 0;
 };
 
 struct FlatProcessNode {
 	ProcessInfo info;
-	quint32 parentPID;
+	quint32 parentPID = 0;
 };

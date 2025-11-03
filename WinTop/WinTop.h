@@ -27,6 +27,10 @@
 #include <IProcessControl.h>
 #include "IProcessTreeBuilder.h"
 #include "ProcessTreeModel.h"
+#include "ProcessDetailsDialog.h"
+#include <QTreeWidget>
+#include <QStackedWidget>
+#include <IDiskMonitor.h>
 
 class WinTop : public QMainWindow
 {
@@ -37,7 +41,7 @@ public:
     ~WinTop();
 
 private slots:
-    void updateData();
+    QList<ProcessInfo> updateData();
     void onProcessContextMenu(const QPoint& pos);
     void onFilterLineEditTextChanged(const QString &text);
     void onTreeContextMenu(const QPoint& pos);
@@ -49,6 +53,7 @@ private:
     std::unique_ptr<IMonitor> _monitor;
     std::unique_ptr<IProcessControl> _processControl;
     std::unique_ptr<IProcessTreeBuilder> _treeBuilder;
+    std::unique_ptr<IDiskMonitor> _diskMonitor;
     QTimer _updateTimer;
 
     QTabWidget* _tabWidget;
@@ -91,9 +96,24 @@ private:
     QWidget* _treeTab;
     QTreeView* _processTreeView;
     ProcessTreeModel* _processTreeModel;
+    QSortFilterProxyModel* _treeProxyModel;
+
+    // Производительность
+    QWidget* _performanceTab;
+    QTreeWidget* _performanceTree; // боковая панель
+    QStackedWidget* _performanceStack; // основная область
+    QWidget* _diskPerformancePage; // страница диска
+    QChartView* _diskChartView; // график диска
+    QChart* _diskChart;
+    QLineSeries* _diskSeriesRead;
+    QLineSeries* _diskSeriesWrite;
+    QValueAxis* _diskAxisX;
+    QValueAxis* _diskAxisY;
+    QWidget* _diskInfoWidget; // информация о диске внизу
 
     void createProcessInfoContextMenu();
     void createProcessTree();
+    void createPerformanceTab();
     void showProcessDetailsDialog(quint32 pid);
     quint32 getPIDFromTreeIndex(const QModelIndex& index);
 };

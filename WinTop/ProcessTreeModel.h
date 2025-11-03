@@ -3,6 +3,8 @@
 #include <QStandardItemModel>
 #include <memory>
 #include "IProcessTreeBuilder.h"
+#include <IProcessControl.h>
+#include <QHash>
 
 struct ProcessItemRow {
     QStandardItem* nameItem;
@@ -24,8 +26,9 @@ public:
     explicit ProcessTreeModel(QObject* parent = nullptr);
 
     void setTreeBuilder(std::unique_ptr<IProcessTreeBuilder> builder);
+    void setProcessControl(IProcessControl* controller);
     void updateData(const QList<ProcessInfo>& data);
-
+    QVariant data(const QModelIndex& index, int role) const;
 private:
     std::unique_ptr<IProcessTreeBuilder> _treeBuilder;
 
@@ -33,5 +36,10 @@ private:
 
     QList<FlatProcessNode> _currentFlatTree;
 
+    IProcessControl* _processControl = nullptr;
+    QHash<quint32, QIcon> _iconCache;
+
     void updateTreeFromNewFlatList(const QList<FlatProcessNode>& newTree);
+    QList<QStandardItem*> createTreeRow(const ProcessInfo& processInfo);
+    void clearImageCashe(QSet<quint32> pidToRemove);
 };
