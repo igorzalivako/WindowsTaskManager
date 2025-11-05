@@ -14,6 +14,7 @@
 #include <QApplication.h>
 #include <QMessageBox>
 #include <QTreeView>
+#include <QComboBox>
 
 #include <QtCharts/QChartView>
 #include <QtCharts/QLineSeries>
@@ -31,6 +32,7 @@
 #include <QTreeWidget>
 #include <QStackedWidget>
 #include <IDiskMonitor.h>
+#include <INetworkMonitor.h>
 
 class WinTop : public QMainWindow
 {
@@ -54,6 +56,7 @@ private:
     std::unique_ptr<IProcessControl> _processControl;
     std::unique_ptr<IProcessTreeBuilder> _treeBuilder;
     std::unique_ptr<IDiskMonitor> _diskMonitor;
+    std::unique_ptr<INetworkMonitor> _networkMonitor;
     QTimer _updateTimer;
 
     QTabWidget* _tabWidget;
@@ -99,6 +102,8 @@ private:
     QSortFilterProxyModel* _treeProxyModel;
 
     // Производительность
+
+    // Диск
     QWidget* _performanceTab;
     QTreeWidget* _performanceTree; // боковая панель
     QStackedWidget* _performanceStack; // основная область
@@ -111,9 +116,23 @@ private:
     QValueAxis* _diskAxisY;
     QWidget* _diskInfoWidget; // информация о диске внизу
 
-    void createProcessInfoContextMenu();
-    void createProcessTree();
-    void createPerformanceTab();
+    // Сеть
+    QWidget* _networkPerformancePage; // страница сети
+    QChartView* _networkChartView; // график сети
+    QChart* _networkChart;
+    QLineSeries* _networkSeriesRecv;
+    QLineSeries* _networkSeriesSent;
+    QValueAxis* _networkAxisX;
+    QValueAxis* _networkAxisY;
+    QWidget* _networkInfoWidget; // информация о сети внизу
+    // Выпадающий список для выбора адаптера
+    QComboBox* _networkAdapterCombo;
+
+    void setUpProcessInfoContextMenu();
+    void setUpProcessTree();
+    void setUpPerformanceTab();
     void showProcessDetailsDialog(quint32 pid);
+    void setUpNetworkPreformanceTab();
+    void updateNetworkAdapterList();
     quint32 getPIDFromTreeIndex(const QModelIndex& index);
 };

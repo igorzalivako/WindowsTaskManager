@@ -11,94 +11,104 @@ WindowsDiskMonitor::WindowsDiskMonitor() {
 }
 
 WindowsDiskMonitor::~WindowsDiskMonitor() {
-    if (m_diskQuery) {
-        PdhCloseQuery(m_diskQuery);
+    if (_diskQuery) {
+        PdhCloseQuery(_diskQuery);
     }
 }
 
 bool WindowsDiskMonitor::initDiskCounters() {
-    if (PdhOpenQuery(NULL, 0, &m_diskQuery) != ERROR_SUCCESS) {
+    if (PdhOpenQuery(NULL, 0, &_diskQuery) != ERROR_SUCCESS) {
+        qDebug() << "PdhOpenQuery failed";
         return false;
     }
 
-    QList<QString> drives = getLogicalDriveStrings();
-    for (const QString& drive : drives) {
-        QString driveLetter = drive.left(1); // "C:"
-        QString counterPath = QString("\\PhysicalDisk(0 %1:)\\Disk Read Bytes/sec").arg(driveLetter);
-        PDH_HCOUNTER counterRead;
-        if (PdhAddCounterW(m_diskQuery, reinterpret_cast<LPCWSTR>(counterPath.utf16()), 0, &counterRead) == ERROR_SUCCESS) {
-            m_diskCountersRead[drive] = counterRead;
-        }
+    QString counterPathRead = QString("\\PhysicalDisk(_Total)\\Disk Read Bytes/sec");
+    QString counterPathWrite = QString("\\PhysicalDisk(_Total)\\Disk Write Bytes/sec");
 
-        counterPath = QString("\\PhysicalDisk(0 %1:)\\Disk Write Bytes/sec").arg(driveLetter);
-        PDH_HCOUNTER counterWrite;
-        if (PdhAddCounterW(m_diskQuery, reinterpret_cast<LPCWSTR>(counterPath.utf16()), 0, &counterWrite) == ERROR_SUCCESS) {
-            m_diskCountersWrite[drive] = counterWrite;
-        }
+    PDH_HCOUNTER counterRead, counterWrite;
+
+    PDH_STATUS statusRead = PdhAddEnglishCounterW(_diskQuery, (LPCWSTR)counterPathRead.utf16(), 0, &counterRead);
+    if (statusRead == ERROR_SUCCESS) {
+        _diskCountersRead["_Total"] = counterRead;
+    }
+    else {
+        qDebug() << "PdhAddCounter Read failed with status:" << statusRead;
     }
 
-    // Collect initial data
-    PdhCollectQueryData(m_diskQuery);
-    m_lastDiskUpdateTime = QDateTime::currentMSecsSinceEpoch();
+    PDH_STATUS statusWrite = PdhAddEnglishCounterW(_diskQuery, reinterpret_cast<LPCWSTR>(counterPathWrite.utf16()), 0, &counterWrite);
+    if (statusWrite == ERROR_SUCCESS) {
+        _diskCountersWrite["_Total"] = counterWrite;
+    }
+    else {
+        qDebug() << "PdhAddCounter Write failed with status:" << statusWrite;
+    }
+
+    PdhCollectQueryData(_diskQuery);
 
     return true;
 }
 
-QList<DiskInfo> WindowsDiskMonitor::getDiskInfo() {
-    QList<DiskInfo> disks;
-
+DisksInfo WindowsDiskMonitor::getDiskInfo() {
+    DisksInfo disksInfo;
     qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
-    double elapsedSec = (currentTime - m_lastDiskUpdateTime) / 1000.0;
-    m_lastDiskUpdateTime = currentTime;
+    double elapsedSec = (currentTime - _lastDiskUpdateTime) / 1000.0;
+    _lastDiskUpdateTime = currentTime;
 
-    // Collect data
-    if (PdhCollectQueryData(m_diskQuery) != ERROR_SUCCESS) {
-        return disks;
+    PDH_STATUS status = PdhCollectQueryData(_diskQuery);
+    if (status != ERROR_SUCCESS) {
+        qDebug() << "PdhCollectQueryData failed with status:" << status;
+
+        for (const QString& drive : getLogicalDriveStrings()) {
+            DiskInfo info;
+            info.name = drive;
+            info.totalBytes = getFileSystemTotalSpace(drive);
+            info.freeBytes = getFileSystemFreeSpace(drive);
+            disksInfo.disks.append(info);
+        }
+        return disksInfo;
     }
 
+    // Ждём немного, чтобы данные успели обновиться
+    Sleep(1);
+
+    PDH_FMT_COUNTERVALUE valueRead, valueWrite;
+    PDH_HCOUNTER counterRead = _diskCountersRead.value("_Total", nullptr);
+    PDH_HCOUNTER counterWrite = _diskCountersWrite.value("_Total", nullptr);
+
+    if (counterRead) {
+        PDH_STATUS statusRead = PdhGetFormattedCounterValue(counterRead, PDH_FMT_LARGE, NULL, &valueRead);
+        if (statusRead == ERROR_SUCCESS) {
+            disksInfo.readBytesPerSec = valueRead.largeValue;
+        }
+        else {
+            qDebug() << "PdhGetFormattedCounterValue Read failed with status:" << statusRead;
+        }
+    }
+
+    if (counterWrite) {
+        PDH_STATUS statusWrite = PdhGetFormattedCounterValue(counterWrite, PDH_FMT_LARGE, NULL, &valueWrite);
+        if (statusWrite == ERROR_SUCCESS) {
+            disksInfo.writeBytesPerSec = valueWrite.largeValue;
+        }
+        else {
+            qDebug() << "PdhGetFormattedCounterValue Write failed with status:" << statusWrite;
+        }
+    }
+
+    disksInfo.ioBytesPerSec = disksInfo.readBytesPerSec + disksInfo.writeBytesPerSec;
+
+    // Также добавим информацию по отдельным дискам
     for (const QString& drive : getLogicalDriveStrings()) {
-        DiskInfo info;
-        info.name = drive;
-        info.totalBytes = getFileSystemTotalSpace(drive);
-        info.freeBytes = getFileSystemFreeSpace(drive);
-
-        // Get raw values
-        PDH_FMT_COUNTERVALUE valueRead, valueWrite;
-        PDH_HCOUNTER counterRead = m_diskCountersRead.value(drive, nullptr);
-        PDH_HCOUNTER counterWrite = m_diskCountersWrite.value(drive, nullptr);
-
-        if (counterRead && PdhGetFormattedCounterValue(counterRead, PDH_FMT_LARGE, NULL, &valueRead) == ERROR_SUCCESS) {
-            quint64 currentRead = valueRead.largeValue;
-            quint64 lastRead = m_lastDiskReadBytes.value(drive, 0);
-            info.readBytesPerSec = (currentRead - lastRead) / elapsedSec;
-            if (elapsedSec > 0) {
-                info.readBytesPerSec = currentRead; // PDH уже возвращает rate
-            }
-            else {
-                info.readBytesPerSec = 0;
-            }
-            m_lastDiskReadBytes[drive] = currentRead;
-        }
-
-        if (counterWrite && PdhGetFormattedCounterValue(counterWrite, PDH_FMT_LARGE, NULL, &valueWrite) == ERROR_SUCCESS) {
-            quint64 currentWrite = valueWrite.largeValue;
-            quint64 lastWrite = m_lastDiskWriteBytes.value(drive, 0);
-            info.writeBytesPerSec = (currentWrite - lastWrite) / elapsedSec;
-            if (elapsedSec > 0) {
-                info.writeBytesPerSec = currentWrite; // PDH уже возвращает rate
-            }
-            else {
-                info.writeBytesPerSec = 0;
-            }
-            m_lastDiskWriteBytes[drive] = currentWrite;
-        }
-
-        info.ioBytesPerSec = info.readBytesPerSec + info.writeBytesPerSec;
-
-        disks.append(info);
+        DiskInfo driveInfo;
+        driveInfo.name = drive;
+        driveInfo.totalBytes = getFileSystemTotalSpace(drive);
+        driveInfo.freeBytes = getFileSystemFreeSpace(drive);
+        disksInfo.disks.append(driveInfo);
+        // Для отдельных дисков I/O нужно получать отдельно, это сложнее
+        // Оставим пока что только общую статистику
     }
 
-    return disks;
+    return disksInfo;
 }
 
 QMap<quint32, ProcessDiskInfo> WindowsDiskMonitor::getProcessDiskInfo() {

@@ -4,7 +4,13 @@
 #include <QDebug>
 #include <QDateTime>
 
-bool WindowsSystemMonitor::calculateCpuUsage(double& cpu_usage) 
+WindowsSystemMonitor::WindowsSystemMonitor(IDiskMonitor* diskMonitor, INetworkMonitor* networkMonitor)
+{
+    m_diskMonitor = diskMonitor;
+    _networkMonitor = networkMonitor;
+}
+
+bool WindowsSystemMonitor::calculateCpuUsage(double& cpu_usage)
 {
     FILETIME idle_time, kernel_time, user_time;
     if (!GetSystemTimes(&idle_time, &kernel_time, &user_time)) 
@@ -113,6 +119,12 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
     // Получаем текущее время
     qint64 current_time = QDateTime::currentMSecsSinceEpoch();
 
+    // Получаем статистику диска
+    auto processDiskInfo = m_diskMonitor->getProcessDiskInfo();
+
+    // Получаем статистику сети по процессам (новое)
+    auto processNetworkInfo = _networkMonitor->getProcessNetworkInfo();
+
     HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (h_snap == INVALID_HANDLE_VALUE) {
         return processes;
@@ -158,6 +170,22 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
             }
 
             CloseHandle(h_proc);
+        }
+
+        // === Добавляем информацию о диске ===
+        if (processDiskInfo.contains(pid)) {
+            const auto& diskInfo = processDiskInfo[pid];
+            info.diskReadBytes = diskInfo.bytesRead;
+            info.diskWriteBytes = diskInfo.bytesWritten;
+            info.diskReadOps = diskInfo.readOperations;
+            info.diskWriteOps = diskInfo.writeOperations;
+        }
+
+        // === Добавляем информацию о сети ===
+        if (processNetworkInfo.contains(pid)) {
+            const auto& netInfo = processNetworkInfo[pid];
+            info.networkBytesReceived = netInfo.bytesReceived;
+            info.networkBytesSent = netInfo.bytesSent;
         }
 
         processes.append(info);

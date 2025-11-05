@@ -4,12 +4,14 @@
 #include <QApplication>
 #include <QStyle>
 
-enum TreeColumn { tcName, tcPID, tcCPU, tcMemory };
+enum TreeColumn { tcName, tcPID, tcCPU, tcMemory, tcReadBytes, tcWriteBytes, tcNetworkIn, tcNetworkOut };
+
+const int COLUMNS_COUNT = 8;
 
 ProcessTreeModel::ProcessTreeModel(QObject* parent)
     : QStandardItemModel(parent)
 {
-    setHorizontalHeaderLabels({ "Name", "PID", "CPU %", "Memory (MB)" });
+    setHorizontalHeaderLabels({ "Name", "PID", "CPU %", "Memory (MB)", "Disk Read (MB)", "Disk Write (MB)", "Net In (MBit)", "Net Out (MBit)" });
 }
 
 void ProcessTreeModel::setTreeBuilder(std::unique_ptr<IProcessTreeBuilder> builder) {
@@ -23,12 +25,17 @@ void ProcessTreeModel::setProcessControl(IProcessControl* controller)
 
 QList<QStandardItem*> ProcessTreeModel::createTreeRow(const ProcessInfo& processInfo)
 {
-    QList<QStandardItem*> treeRow(4);
+    QList<QStandardItem*> treeRow(COLUMNS_COUNT);
     treeRow[tcName] = new QStandardItem(processInfo.name);
     treeRow[tcName]->setData(processInfo.pid, Qt::UserRole + 1);
     treeRow[tcPID] = new QStandardItem(QString::number(processInfo.pid));
     treeRow[tcCPU] = new QStandardItem(QString::number(processInfo.cpuUsage, 'f', 2) + "%");
     treeRow[tcMemory] = new QStandardItem(QString::number(processInfo.memoryUsage / 1024 / 1024) + " MB");
+    treeRow[tcReadBytes] = new QStandardItem(QString::number(processInfo.diskReadBytes / 1024 / 1024) + " MB");
+    treeRow[tcWriteBytes] = new QStandardItem(QString::number(processInfo.diskWriteBytes / 1024 / 1024) + " MB");
+    treeRow[tcNetworkIn] = new QStandardItem(QString::number(processInfo.networkBytesReceived / 1024 / 128) + " MBit");
+    treeRow[tcNetworkOut] = new QStandardItem(QString::number(processInfo.networkBytesSent / 1024 / 128) + " MBit");
+    
     if (_processControl) {
         if (_iconCache.contains(processInfo.pid)) {
             treeRow[tcName]->setIcon(_iconCache[processInfo.pid]);
@@ -50,6 +57,11 @@ void ProcessTreeModel::clearImageCashe(QSet<quint32> pidToRemove)
     }
 }
 
+ProcessItemRow ProcessTreeModel::createProcessItemRow(QList<QStandardItem*> row)
+{
+    return ProcessItemRow(row[tcName], row[tcPID], row[tcCPU], row[tcMemory], row[tcReadBytes], row[tcWriteBytes], row[tcNetworkIn], row[tcNetworkOut]);
+}
+
 void ProcessTreeModel::updateData(const QList<ProcessInfo>& data) {
     if (!_treeBuilder) return;
 
@@ -60,7 +72,7 @@ void ProcessTreeModel::updateData(const QList<ProcessInfo>& data) {
     {
         // Полная инициализация
         clear();
-        setHorizontalHeaderLabels({ "Name", "PID", "CPU %", "Memory (MB)" });
+        setHorizontalHeaderLabels({ "Name", "PID", "CPU %", "Memory (MB)", "Disk Read (MB)", "Disk Write (MB)", "Net In (MBit)", "Net Out (MBit)"});
         _pidToRow.clear();
 
         // Двухфазная вставка: сначала корни, потом дети
@@ -75,7 +87,7 @@ void ProcessTreeModel::updateData(const QList<ProcessInfo>& data) {
             if (n.parentPID == 0) {
                 QList<QStandardItem*> row = createTreeRow(n.info);
                 invisibleRootItem()->appendRow(row);
-                _pidToRow.insert(n.info.pid, ProcessItemRow(row[tcName], row[tcPID], row[tcCPU], row[tcMemory]));
+                _pidToRow.insert(n.info.pid, createProcessItemRow(row));
             }
         }
 
@@ -100,7 +112,7 @@ void ProcessTreeModel::updateData(const QList<ProcessInfo>& data) {
                         : _pidToRow[n.parentPID].nameItem;
                     QList<QStandardItem*> row = createTreeRow(n.info);
                     parentItem->appendRow(row);
-                    _pidToRow.insert(n.info.pid, ProcessItemRow(row[tcName], row[tcPID], row[tcCPU], row[tcMemory]));
+                    _pidToRow.insert(n.info.pid, createProcessItemRow(row));
                     placed.insert(n.info.pid);
                     progress = true;
                 }
@@ -199,6 +211,10 @@ void ProcessTreeModel::updateTreeFromNewFlatList(const QList<FlatProcessNode>& n
             ProcessItemRow& row = it.value();
             if (row.cpuItem) row.cpuItem->setText(QString::number(node.info.cpuUsage, 'f', 2) + "%");
             if (row.memItem) row.memItem->setText(QString::number(node.info.memoryUsage / 1024 / 1024) + " MB");
+            if (row.diskReadBytes) row.diskReadBytes->setText(QString::number(node.info.diskReadBytes / 1024 / 1024) + " MB");
+            if (row.diskWriteBytes) row.diskWriteBytes->setText(QString::number(node.info.diskWriteBytes / 1024 / 1024) + " MB");
+            if (row.networkIn) row.networkIn->setText(QString::number(node.info.networkBytesReceived / 1024 / 1024) + " MB");
+            if (row.networkOut) row.networkOut->setText(QString::number(node.info.networkBytesSent / 1024 / 1024) + " MB");
             if (row.nameItem && row.nameItem->text() != node.info.name) row.nameItem->setText(node.info.name);
         }
     }
@@ -222,7 +238,7 @@ void ProcessTreeModel::updateTreeFromNewFlatList(const QList<FlatProcessNode>& n
         {
             QList<QStandardItem*> row = createTreeRow(node.info);
             invisibleRootItem()->appendRow(row);
-            _pidToRow.insert(node.info.pid, ProcessItemRow(row[tcName], row[tcPID], row[tcCPU], row[tcMemory]));
+            _pidToRow.insert(node.info.pid, createProcessItemRow(row));
             placedNow.append(pid);
         }
     }
@@ -246,7 +262,7 @@ void ProcessTreeModel::updateTreeFromNewFlatList(const QList<FlatProcessNode>& n
 
                 QList<QStandardItem*> row = createTreeRow(node.info);
                 parentItem->appendRow(row);
-                _pidToRow.insert(node.info.pid, ProcessItemRow(row[tcName], row[tcPID], row[tcCPU], row[tcMemory]));
+                _pidToRow.insert(node.info.pid, createProcessItemRow(row));
 
                 it = toPlace.erase(it);
                 progress = true;

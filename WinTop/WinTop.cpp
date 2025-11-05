@@ -1,16 +1,18 @@
 ﻿#include "WinTop.h"
-#include <WindowsSystemMonitor.h>
-#include <WindowsProcessControl.h>
-#include <WindowsProcessTreeBuilder.h>
-#include <WindowsDiskMonitor.h>
+#include "WindowsSystemMonitor.h"
+#include "WindowsProcessControl.h"
+#include "WindowsProcessTreeBuilder.h"
+#include "WindowsDiskMonitor.h"
+#include "WindowsNetworkMonitor.h"
 
 WinTop::WinTop(QWidget *parent)
     : QMainWindow(parent)
 {
-    _monitor = std::make_unique<WindowsSystemMonitor>();
     _processControl = std::make_unique<WindowsProcessControl>();
     _treeBuilder = std::make_unique<WindowsProcessTreeBuilder>();
     _diskMonitor = std::make_unique<WindowsDiskMonitor>();
+    _networkMonitor = std::make_unique<WindowsNetworkMonitor>();
+    _monitor = std::make_unique<WindowsSystemMonitor>(_diskMonitor.get(), _networkMonitor.get());
     connect(&_updateTimer, &QTimer::timeout, this, &WinTop::updateData);
     setupUI();
     _updateTimer.start(1000);
@@ -99,12 +101,12 @@ void WinTop::setupUI()
     processLayout->addWidget(_processTableView);
 
     // Дерево процессов
-    createProcessTree();
+    setUpProcessTree();
 
     // Контекстное меню процесса
-    createProcessInfoContextMenu();
+    setUpProcessInfoContextMenu();
 
-    createPerformanceTab();
+    setUpPerformanceTab();
 
     // === Add Tabs ===
     _tabWidget->addTab(_overviewTab, "Обзор");
@@ -148,11 +150,8 @@ QList<ProcessInfo> WinTop::updateData()
 
     // Обновляем график диска
     static int diskX = 0;
-    double totalRead = 0, totalWrite = 0;
-    for (const auto& disk : diskInfo) {
-        totalRead += disk.readBytesPerSec;
-        totalWrite += disk.writeBytesPerSec;
-    }
+    double totalRead = diskInfo.readBytesPerSec, totalWrite = diskInfo.writeBytesPerSec;
+
     _diskSeriesRead->append(diskX, totalRead / 1024 / 1024); // в МБ/с
     _diskSeriesWrite->append(diskX, totalWrite / 1024 / 1024);
     diskX++;
@@ -164,7 +163,7 @@ QList<ProcessInfo> WinTop::updateData()
 
     // === Обновляем информацию о диске ===
     QString diskInfoText = "Диски:\n";
-    for (const auto& disk : diskInfo) {
+    for (const auto& disk : diskInfo.disks) {
         double totalGB = disk.totalBytes / 1024.0 / 1024.0 / 1024.0;
         double freeGB = disk.freeBytes / 1024.0 / 1024.0 / 1024.0;
         double usedGB = totalGB - freeGB;
@@ -182,6 +181,50 @@ QList<ProcessInfo> WinTop::updateData()
     auto* diskInfoLabel = _diskInfoWidget->findChild<QLabel*>("diskInfoLabel");
     if (diskInfoLabel) {
         diskInfoLabel->setText(diskInfoText);
+    }
+
+    // === Обновляем данные сети ===
+    auto networkInfo = _networkMonitor->getNetworkInfo();
+
+    // Обновляем график сети
+    static int networkX = 0;
+    double selectedRecv = 0, selectedSent = 0;
+    QString selectedAdapter = _networkAdapterCombo->currentData().toString();
+    if (networkX != 0) {
+        // Статистика для выбранного адаптера
+        for (const auto& net : networkInfo) {
+            if (net.name == selectedAdapter) {
+                selectedRecv = net.receiveBytesPerSec;
+                selectedSent = net.sendBytesPerSec;
+                break;
+            }
+        }
+    }
+
+    _networkSeriesRecv->append(networkX, selectedRecv / 1024 / 128); // в МБит/с
+    _networkSeriesSent->append(networkX, selectedSent / 1024 / 128);
+    networkX++;
+    if (_networkSeriesRecv->count() > 100) {
+        _networkSeriesRecv->removePoints(0, 1);
+        _networkSeriesSent->removePoints(0, 1);
+    }
+    _networkAxisX->setRange(networkX - 100, networkX);
+
+    // === Обновляем информацию о сети ===
+    QString networkInfoText = "Сетевые интерфейсы:\n";
+    for (const auto& net : networkInfo) {
+        if (net.name == selectedAdapter) {
+            networkInfoText += QString("(%1): Приём %2 МБит/с, Отправка %3 МБит/с\n")
+                .arg(net.description)
+                .arg(net.receiveBytesPerSec / 1024 / 128, 0, 'f', 2)
+                .arg(net.sendBytesPerSec / 1024 / 128, 0, 'f', 2);
+        }
+    }
+
+    // Найдём QLabel и обновим текст
+    auto* networkInfoLabel = _networkInfoWidget->findChild<QLabel*>("networkInfoLabel");
+    if (networkInfoLabel) {
+        networkInfoLabel->setText(networkInfoText);
     }
 
     return processes;
@@ -248,7 +291,7 @@ void WinTop::onFilterLineEditTextChanged(const QString &text)
     _proxyModel->setFilterFixedString(text);
 }
 
-void WinTop::createProcessInfoContextMenu()
+void WinTop::setUpProcessInfoContextMenu()
 {
     _processContextMenu = new QMenu(this);
     _killProcessAction = new QAction("Завершить процесс", this);
@@ -263,7 +306,7 @@ void WinTop::createProcessInfoContextMenu()
     connect(_showDetailsAction, &QAction::triggered, this, &WinTop::showProcessDetails);
 }
 
-void WinTop::createProcessTree() 
+void WinTop::setUpProcessTree() 
 {
     _treeTab = new QWidget();
     auto* treeLayout = new QVBoxLayout(_treeTab);
@@ -283,7 +326,7 @@ void WinTop::createProcessTree()
     treeLayout->addWidget(_processTreeView);
 }
 
-void WinTop::createPerformanceTab()
+void WinTop::setUpPerformanceTab()
 {
     _performanceTab = new QWidget();
     auto* perfLayout = new QHBoxLayout(_performanceTab); // горизонтальный layout
@@ -359,7 +402,7 @@ void WinTop::createPerformanceTab()
 
     _performanceStack->addWidget(_diskPerformancePage);
 
-    // ... можно добавить другие страницы: CPU, Memory, Network
+    setUpNetworkPreformanceTab();
 
     perfLayout->addWidget(_performanceStack);
 
@@ -378,6 +421,88 @@ void WinTop::createPerformanceTab()
     // Устанавливаем первый элемент как текущий
     _performanceTree->setCurrentItem(_performanceTree->topLevelItem(0));
 
+}
+
+void WinTop::setUpNetworkPreformanceTab()
+{
+    // === Страница сети ===
+    _networkPerformancePage = new QWidget();
+    auto* networkPerfLayout = new QVBoxLayout(_networkPerformancePage);
+
+    // Выпадающий список
+    _networkAdapterCombo = new QComboBox();
+    networkPerfLayout->addWidget(_networkAdapterCombo);
+
+    // График
+    _networkChart = new QChart();
+    _networkSeriesRecv = new QLineSeries();
+    _networkSeriesRecv->setName("Приём");
+    _networkSeriesSent = new QLineSeries();
+    _networkSeriesSent->setName("Отправка");
+    _networkChart->addSeries(_networkSeriesRecv);
+    _networkChart->addSeries(_networkSeriesSent);
+    _networkChart->legend()->show();
+
+    _networkAxisX = new QValueAxis;
+    _networkAxisY = new QValueAxis;
+    _networkAxisX->setRange(0, 100);
+    _networkAxisY->setRange(0, 100);
+    _networkChart->addAxis(_networkAxisX, Qt::AlignBottom);
+    _networkChart->addAxis(_networkAxisY, Qt::AlignLeft);
+    _networkSeriesRecv->attachAxis(_networkAxisX);
+    _networkSeriesRecv->attachAxis(_networkAxisY);
+    _networkSeriesSent->attachAxis(_networkAxisX);
+    _networkSeriesSent->attachAxis(_networkAxisY);
+
+    _networkChartView = new QChartView(_networkChart);
+    _networkChartView->setRenderHint(QPainter::Antialiasing);
+
+    networkPerfLayout->addWidget(_networkChartView);
+
+    // Информация о сети (внизу)
+    _networkInfoWidget = new QWidget();
+    auto* networkInfoLayout = new QVBoxLayout(_networkInfoWidget);
+    auto networkInfoLabel = new QLabel("Информация о сети появится здесь...");
+    networkInfoLabel->setObjectName("networkInfoLabel");
+    networkInfoLayout->addWidget(networkInfoLabel);
+    networkPerfLayout->addWidget(_networkInfoWidget);
+
+    _performanceStack->addWidget(_networkPerformancePage);
+
+    // ... (добавляем остальные страницы)
+
+    // Подключаем выбор элемента в дереве
+    connect(_performanceTree, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* current, QTreeWidgetItem* previous) {
+        Q_UNUSED(previous);
+        if (current) {
+            QString resource = current->data(0, Qt::UserRole).toString();
+            if (resource == "disk") {
+                _performanceStack->setCurrentWidget(_diskPerformancePage);
+            }
+            else if (resource == "network") {
+                _performanceStack->setCurrentWidget(_networkPerformancePage);
+                updateNetworkAdapterList();
+            }
+            // ... другие ресурсы
+        }
+    });
+
+    connect(_networkAdapterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int index) {
+        // Очищаем графики при смене адаптера
+        _networkSeriesRecv->clear();
+        _networkSeriesSent->clear();
+    });
+}
+
+void WinTop::updateNetworkAdapterList() {
+    auto networkInfo = _networkMonitor->getNetworkInfo();
+
+    _networkAdapterCombo->clear();
+
+    for (const auto& net : networkInfo) {
+        // Добавляем только активные адаптеры
+        _networkAdapterCombo->addItem(QString("%1 (%2)").arg(net.description), net.name);
+    }
 }
 
 void WinTop::killSelectedProcesses()

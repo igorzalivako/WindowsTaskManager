@@ -10,17 +10,17 @@ class WindowsDiskMonitor : public IDiskMonitor {
 public:
     WindowsDiskMonitor();
     ~WindowsDiskMonitor();
-    QList<DiskInfo> getDiskInfo() override;
+    DisksInfo getDiskInfo() override;
     QMap<quint32, ProcessDiskInfo> getProcessDiskInfo() override;
 
 private:
     // Для статистики дисков
-    PDH_HQUERY m_diskQuery = nullptr;
-    QMap<QString, PDH_HCOUNTER> m_diskCountersRead;
-    QMap<QString, PDH_HCOUNTER> m_diskCountersWrite;
+    PDH_HQUERY _diskQuery = nullptr;
+    QMap<QString, PDH_HCOUNTER> _diskCountersRead;
+    QMap<QString, PDH_HCOUNTER> _diskCountersWrite;
     QMap<QString, quint64> m_lastDiskReadBytes;
     QMap<QString, quint64> m_lastDiskWriteBytes;
-    qint64 m_lastDiskUpdateTime = 0;
+    qint64 _lastDiskUpdateTime = 0;
 
     // Для статистики процессов
     QMap<quint32, quint64> m_lastProcessReadBytes;

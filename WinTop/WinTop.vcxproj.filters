@@ -62,6 +62,9 @@
     <ClCompile Include="WindowsDiskMonitor.cpp">
       <Filter>platform\Windows</Filter>
     </ClCompile>
+    <ClCompile Include="WindowsNetworkMonitor.cpp">
+      <Filter>platform\Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="WinTop.ui">
@@ -111,6 +114,12 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="WindowsDiskMonitor.h">
+      <Filter>platform\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="INetworkMonitor.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowsNetworkMonitor.h">
       <Filter>platform\Windows</Filter>
     </ClInclude>
   </ItemGroup>

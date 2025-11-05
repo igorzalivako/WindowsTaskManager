@@ -11,9 +11,13 @@ struct ProcessItemRow {
     QStandardItem* pidItem;
     QStandardItem* cpuItem;
     QStandardItem* memItem;
+    QStandardItem* diskReadBytes;
+    QStandardItem* diskWriteBytes;
+    QStandardItem* networkIn;
+    QStandardItem* networkOut;
 
-    ProcessItemRow(QStandardItem* n, QStandardItem* p, QStandardItem* c, QStandardItem* m)
-        : nameItem(n), pidItem(p), cpuItem(c), memItem(m) {
+    ProcessItemRow(QStandardItem* n, QStandardItem* p, QStandardItem* c, QStandardItem* m, QStandardItem* diskReadBytes, QStandardItem* diskWriteBytes, QStandardItem* networkIn, QStandardItem* networkOut)
+        : nameItem(n), pidItem(p), cpuItem(c), memItem(m), diskReadBytes(diskReadBytes), diskWriteBytes(diskWriteBytes), networkIn(networkIn), networkOut(networkOut) {
     }
 
     ProcessItemRow() = default;
@@ -42,4 +46,5 @@ private:
     void updateTreeFromNewFlatList(const QList<FlatProcessNode>& newTree);
     QList<QStandardItem*> createTreeRow(const ProcessInfo& processInfo);
     void clearImageCashe(QSet<quint32> pidToRemove);
+    ProcessItemRow createProcessItemRow(QList<QStandardItem*> row);
 };
