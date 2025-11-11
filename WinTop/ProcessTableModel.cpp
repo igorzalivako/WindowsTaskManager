@@ -1,7 +1,7 @@
 #include "ProcessTableModel.h"
 #include <QApplication>
 
-const int COLUMNS_COUNT = 8;
+const int COLUMNS_COUNT = 6;
 
 ProcessTableModel::ProcessTableModel(QObject* parent)
     : QAbstractTableModel(parent) {
@@ -37,8 +37,6 @@ QVariant ProcessTableModel::data(const QModelIndex& index, int role) const {
             return QString::number(proc.memoryUsage / 1024 / 1024) + " MB";
         case 4: return QString::number(proc.diskReadBytes / 1024 / 1024) + " MB";
         case 5: return QString::number(proc.diskWriteBytes / 1024 / 1024) + " MB";
-        case 6: return QString::number(proc.networkBytesReceived / 1024 / 128) + " MBit";
-        case 7: return QString::number(proc.networkBytesSent / 1024 / 128) + " MBit";
         default:
             return QVariant();
         }
@@ -58,8 +56,6 @@ QVariant ProcessTableModel::data(const QModelIndex& index, int role) const {
             return proc.memoryUsage;
         case 4: return proc.diskReadBytes; 
         case 5: return proc.diskWriteBytes; 
-        case 6: return proc.networkBytesReceived;
-        case 7: return proc.networkBytesSent;
         default:
             return QVariant();
         }
@@ -95,8 +91,6 @@ QVariant ProcessTableModel::headerData(int section, Qt::Orientation orientation,
             return "RAM (MB)";
         case 4: return "Disk Read (MB)";
         case 5: return "Disk Write (MB)";
-        case 6: return "Net In (MBit)";
-        case 7: return "Net Out (MBit)";
         default:
             return QVariant();
         }

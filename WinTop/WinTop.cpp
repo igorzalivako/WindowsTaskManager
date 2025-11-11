@@ -4,6 +4,7 @@
 #include "WindowsProcessTreeBuilder.h"
 #include "WindowsDiskMonitor.h"
 #include "WindowsNetworkMonitor.h"
+#include <WindowsGPUMonitor.h>
 
 WinTop::WinTop(QWidget *parent)
     : QMainWindow(parent)
@@ -12,6 +13,7 @@ WinTop::WinTop(QWidget *parent)
     _treeBuilder = std::make_unique<WindowsProcessTreeBuilder>();
     _diskMonitor = std::make_unique<WindowsDiskMonitor>();
     _networkMonitor = std::make_unique<WindowsNetworkMonitor>();
+    m_gpuMonitor = std::make_unique<WindowsGPUMonitor>();
     _monitor = std::make_unique<WindowsSystemMonitor>(_diskMonitor.get(), _networkMonitor.get());
     connect(&_updateTimer, &QTimer::timeout, this, &WinTop::updateData);
     setupUI();
@@ -227,6 +229,73 @@ QList<ProcessInfo> WinTop::updateData()
         networkInfoLabel->setText(networkInfoText);
     }
 
+    // === Обновляем данные GPU ===
+    auto gpuInfo = m_gpuMonitor->getGPUInfo();
+
+    // Обновляем график GPU
+    static int gpuX = 0;
+    double maxLoad = 0;
+    for (const auto& gpu : gpuInfo) {
+        QString gpuName = gpu.name;
+
+        if (!m_gpuSeriesMap.contains(gpuName)) {
+            // Создаём новый график
+            auto* series = new QLineSeries();
+            series->setName(gpuName); // подпись в легенде
+            m_gpuChart->addSeries(series);
+            series->attachAxis(m_gpuAxisX);
+            series->attachAxis(m_gpuAxisY);
+            m_gpuSeriesMap[gpuName] = series;
+        }
+        auto* series = m_gpuSeriesMap[gpuName];
+        series->append(gpuX, gpu.usage);
+    }
+    gpuX++;
+
+    // Удаляем лишние графики, если видеокарты исчезли
+    QStringList currentNames;
+    for (const auto& gpu : gpuInfo) {
+        currentNames.append(gpu.name);
+    }
+    for (auto it = m_gpuSeriesMap.begin(); it != m_gpuSeriesMap.end();) {
+        if (!currentNames.contains(it.key())) {
+            m_gpuChart->removeSeries(it.value());
+            delete it.value();
+            it = m_gpuSeriesMap.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
+
+    gpuX++;
+    // Удаляем старые точки, если нужно
+    for (auto* series : m_gpuSeriesMap) {
+        if (series->count() > 100) {
+            series->removePoints(0, 1);
+        }
+    }
+    m_gpuAxisX->setRange(gpuX - 100, gpuX);
+
+    // === Обновляем информацию о GPU ===
+    QString gpuInfoText = "Видеокарты:\n";
+    for (const auto& gpu : gpuInfo) {
+        gpuInfoText += QString("%1: Загрузка %2%, Память %3 ГБ / %4 ГБ, Производитель %5, Температура: %7 C, Текущее энергопотребление: %6 Вт\n")
+            .arg(gpu.name)
+            .arg(gpu.usage)
+            .arg(gpu.usedMemoryBytes / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
+            .arg(gpu.totalMemoryBytes / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
+            .arg(gpu.vendor)
+            .arg(gpu.powerUsage)
+            .arg(gpu.temperatureCelsius);
+    }
+
+    // Найдём QLabel и обновим текст
+    auto* gpuInfoLabel = m_gpuInfoWidget->findChild<QLabel*>("gpuInfoLabel");
+    if (gpuInfoLabel) {
+        gpuInfoLabel->setText(gpuInfoText);
+    }
+
     return processes;
 }
 
@@ -352,6 +421,10 @@ void WinTop::setUpPerformanceTab()
     networkItem->setText(0, "Сеть");
     networkItem->setData(0, Qt::UserRole, "network");
 
+    auto* gpuItem = new QTreeWidgetItem(_performanceTree);
+    gpuItem->setText(0, "GPU");
+    gpuItem->setData(0, Qt::UserRole, "gpu");
+
     // ... можно добавить GPU, если реализуешь
 
     perfLayout->addWidget(_performanceTree);
@@ -403,6 +476,8 @@ void WinTop::setUpPerformanceTab()
     _performanceStack->addWidget(_diskPerformancePage);
 
     setUpNetworkPreformanceTab();
+    
+    setUpGPUPerformanceTab();
 
     perfLayout->addWidget(_performanceStack);
 
@@ -482,6 +557,10 @@ void WinTop::setUpNetworkPreformanceTab()
             else if (resource == "network") {
                 _performanceStack->setCurrentWidget(_networkPerformancePage);
                 updateNetworkAdapterList();
+            } 
+            else if (resource == "gpu")
+            {
+                _performanceStack->setCurrentWidget(m_gpuPerformancePage);
             }
             // ... другие ресурсы
         }
@@ -492,6 +571,37 @@ void WinTop::setUpNetworkPreformanceTab()
         _networkSeriesRecv->clear();
         _networkSeriesSent->clear();
     });
+}
+
+void WinTop::setUpGPUPerformanceTab()
+{
+    m_gpuPerformancePage = new QWidget();
+    auto* gpuPerfLayout = new QVBoxLayout(m_gpuPerformancePage);
+
+    // График
+    m_gpuChart = new QChart();
+    m_gpuChart->legend()->show();
+
+    m_gpuAxisX = new QValueAxis;
+    m_gpuAxisY = new QValueAxis;
+    m_gpuAxisX->setRange(0, 100);
+    m_gpuAxisY->setRange(0, 100);
+    m_gpuChart->addAxis(m_gpuAxisX, Qt::AlignBottom);
+    m_gpuChart->addAxis(m_gpuAxisY, Qt::AlignLeft);
+
+    m_gpuChartView = new QChartView(m_gpuChart);
+    m_gpuChartView->setRenderHint(QPainter::Antialiasing);
+
+    gpuPerfLayout->addWidget(m_gpuChartView);
+
+    // Информация о GPU (внизу)
+    m_gpuInfoWidget = new QWidget();
+    auto* gpuInfoLayout = new QVBoxLayout(m_gpuInfoWidget);
+    auto gpuInfoLabel = new QLabel("Информация о сети появится здесь...");
+    gpuInfoLabel->setObjectName("gpuInfoLabel");
+    gpuInfoLayout->addWidget(gpuInfoLabel);
+    gpuPerfLayout->addWidget(m_gpuInfoWidget);
+    _performanceStack->addWidget(m_gpuPerformancePage);
 }
 
 void WinTop::updateNetworkAdapterList() {

@@ -122,9 +122,6 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
     // Получаем статистику диска
     auto processDiskInfo = m_diskMonitor->getProcessDiskInfo();
 
-    // Получаем статистику сети по процессам (новое)
-    auto processNetworkInfo = _networkMonitor->getProcessNetworkInfo();
-
     HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (h_snap == INVALID_HANDLE_VALUE) {
         return processes;
@@ -179,13 +176,6 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
             info.diskWriteBytes = diskInfo.bytesWritten;
             info.diskReadOps = diskInfo.readOperations;
             info.diskWriteOps = diskInfo.writeOperations;
-        }
-
-        // === Добавляем информацию о сети ===
-        if (processNetworkInfo.contains(pid)) {
-            const auto& netInfo = processNetworkInfo[pid];
-            info.networkBytesReceived = netInfo.bytesReceived;
-            info.networkBytesSent = netInfo.bytesSent;
         }
 
         processes.append(info);

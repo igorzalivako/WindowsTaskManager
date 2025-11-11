@@ -65,6 +65,9 @@
     <ClCompile Include="WindowsNetworkMonitor.cpp">
       <Filter>platform\Windows</Filter>
     </ClCompile>
+    <ClCompile Include="WindowsGPUMonitor.cpp">
+      <Filter>platform\Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="WinTop.ui">
@@ -120,6 +123,12 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="WindowsNetworkMonitor.h">
+      <Filter>platform\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="IGPUMonitor.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowsGPUMonitor.h">
       <Filter>platform\Windows</Filter>
     </ClInclude>
   </ItemGroup>

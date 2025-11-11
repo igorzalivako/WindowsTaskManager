@@ -15,6 +15,7 @@
 #include <QMessageBox>
 #include <QTreeView>
 #include <QComboBox>
+#include <QHash>
 
 #include <QtCharts/QChartView>
 #include <QtCharts/QLineSeries>
@@ -33,6 +34,7 @@
 #include <QStackedWidget>
 #include <IDiskMonitor.h>
 #include <INetworkMonitor.h>
+#include <IGPUMonitor.h>
 
 class WinTop : public QMainWindow
 {
@@ -57,6 +59,7 @@ private:
     std::unique_ptr<IProcessTreeBuilder> _treeBuilder;
     std::unique_ptr<IDiskMonitor> _diskMonitor;
     std::unique_ptr<INetworkMonitor> _networkMonitor;
+    std::unique_ptr<IGPUMonitor> m_gpuMonitor;
     QTimer _updateTimer;
 
     QTabWidget* _tabWidget;
@@ -128,11 +131,21 @@ private:
     // Выпадающий список для выбора адаптера
     QComboBox* _networkAdapterCombo;
 
+    // Производительность
+    QWidget* m_gpuPerformancePage; // страница GPU
+    QChartView* m_gpuChartView; // график GPU
+    QChart* m_gpuChart;
+    QHash<QString, QLineSeries*> m_gpuSeriesMap;
+    QValueAxis* m_gpuAxisX;
+    QValueAxis* m_gpuAxisY;
+    QWidget* m_gpuInfoWidget; // информация о GPU внизу
+
     void setUpProcessInfoContextMenu();
     void setUpProcessTree();
     void setUpPerformanceTab();
     void showProcessDetailsDialog(quint32 pid);
     void setUpNetworkPreformanceTab();
+    void setUpGPUPerformanceTab();
     void updateNetworkAdapterList();
     quint32 getPIDFromTreeIndex(const QModelIndex& index);
 };

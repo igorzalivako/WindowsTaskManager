@@ -27,8 +27,6 @@ struct ProcessInfo
 	quint64 diskWriteBytes = 0;
 	quint64 diskReadOps = 0;
 	quint64 diskWriteOps = 0;
-	quint64 networkBytesReceived = 0;
-	quint64 networkBytesSent = 0;
 };
 
 struct ProcessDetails 
@@ -83,10 +81,18 @@ struct NetworkInterfaceInfo {
 	bool isUp = false;
 };
 
-struct ProcessNetworkInfo {
-	quint32 pid = 0;
-	quint64 bytesReceived = 0;
-	quint64 bytesSent = 0;
+struct GPUInfo 
+{
+	QString vendor;
+	QString name;
+	double loadPercent = 0.0;
+	quint64 totalMemoryBytes = 0;
+	quint64 usedMemoryBytes = 0;
+	double temperatureCelsius = 0.0;
+	quint32 usage = 0;
+	quint32 powerUsage = 0;
+	quint32 fanSpeed = 0;
+	QString driverVersion;
 };
 
 struct FlatProcessNode {

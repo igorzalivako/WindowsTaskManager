@@ -13,11 +13,9 @@ struct ProcessItemRow {
     QStandardItem* memItem;
     QStandardItem* diskReadBytes;
     QStandardItem* diskWriteBytes;
-    QStandardItem* networkIn;
-    QStandardItem* networkOut;
 
-    ProcessItemRow(QStandardItem* n, QStandardItem* p, QStandardItem* c, QStandardItem* m, QStandardItem* diskReadBytes, QStandardItem* diskWriteBytes, QStandardItem* networkIn, QStandardItem* networkOut)
-        : nameItem(n), pidItem(p), cpuItem(c), memItem(m), diskReadBytes(diskReadBytes), diskWriteBytes(diskWriteBytes), networkIn(networkIn), networkOut(networkOut) {
+    ProcessItemRow(QStandardItem* n, QStandardItem* p, QStandardItem* c, QStandardItem* m, QStandardItem* diskReadBytes, QStandardItem* diskWriteBytes)
+        : nameItem(n), pidItem(p), cpuItem(c), memItem(m), diskReadBytes(diskReadBytes), diskWriteBytes(diskWriteBytes) {
     }
 
     ProcessItemRow() = default;
