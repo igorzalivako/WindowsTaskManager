@@ -13,9 +13,10 @@ struct ProcessItemRow {
     QStandardItem* memItem;
     QStandardItem* diskReadBytes;
     QStandardItem* diskWriteBytes;
+    QStandardItem* gpuUsage;
 
-    ProcessItemRow(QStandardItem* n, QStandardItem* p, QStandardItem* c, QStandardItem* m, QStandardItem* diskReadBytes, QStandardItem* diskWriteBytes)
-        : nameItem(n), pidItem(p), cpuItem(c), memItem(m), diskReadBytes(diskReadBytes), diskWriteBytes(diskWriteBytes) {
+    ProcessItemRow(QStandardItem* n, QStandardItem* p, QStandardItem* c, QStandardItem* m, QStandardItem* diskReadBytes, QStandardItem* diskWriteBytes, QStandardItem* gpuUsage)
+        : nameItem(n), pidItem(p), cpuItem(c), memItem(m), diskReadBytes(diskReadBytes), diskWriteBytes(diskWriteBytes), gpuUsage(gpuUsage) {
     }
 
     ProcessItemRow() = default;

@@ -10,6 +10,17 @@ struct SystemInfo
 	quint64 totalMemory = 0;
 	quint64 availableMemory = 0;
 	quint64 usedMemory = 0;
+
+	quint32 processCount = 0;
+	quint32 threadCount = 0;
+	double baseSpeedGHz = 0.0;
+	quint32 coreCount = 0;
+	quint32 logicalProcessorCount = 0;
+	quint32 cacheL1KB = 0;
+	quint32 cacheL2KB = 0;
+	quint32 cacheL3KB = 0;
+
+	QList<double> cpuCoreUsage;
 };
 
 struct ProcessInfo 
@@ -27,6 +38,8 @@ struct ProcessInfo
 	quint64 diskWriteBytes = 0;
 	quint64 diskReadOps = 0;
 	quint64 diskWriteOps = 0;
+
+	quint64 gpuUsage = 0;
 };
 
 struct ProcessDetails 
@@ -93,6 +106,12 @@ struct GPUInfo
 	quint32 powerUsage = 0;
 	quint32 fanSpeed = 0;
 	QString driverVersion;
+};
+
+struct ProcessGPUInfo
+{
+	quint32 pid = 0;
+	qint32 gpuUtilization = 0;
 };
 
 struct FlatProcessNode {

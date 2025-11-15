@@ -6,6 +6,8 @@
 #include <map>
 #include <IDiskMonitor.h>
 #include <INetworkMonitor.h>
+#include <IGPUMonitor.h>
+#include <Pdh.h>
 
 struct ProcessTimeInfo {
 	ULARGE_INTEGER creation_time = {};
@@ -22,10 +24,11 @@ public:
 	SystemInfo getSystemInfo() override;
 	QList<ProcessInfo> getProcesses() override;
 
-	WindowsSystemMonitor(IDiskMonitor* diskMonitor, INetworkMonitor* networkMonitor);
+	WindowsSystemMonitor(IDiskMonitor* diskMonitor, INetworkMonitor* networkMonitor, IGPUMonitor* gpuMonitor);
 	~WindowsSystemMonitor() override = default;
 private:
-	IDiskMonitor* m_diskMonitor;
+	IGPUMonitor* _gpuMonitor;
+	IDiskMonitor* _diskMonitor;
 	INetworkMonitor* _networkMonitor;
 	ULARGE_INTEGER _lastIdleTime = {};
 	ULARGE_INTEGER _lastKernelTime = {};
@@ -37,4 +40,17 @@ private:
 	bool calculateCpuUsage(double& cpu_usage);
 	bool calculateProcessCpuUsage(HANDLE _proc, ProcessTimeInfo& timeInfo, quint32 pId);
 	double computeCpuPercentage(const ProcessTimeInfo& old, const ProcessTimeInfo& current, qint64 elapsedMs);
+
+	quint32 getProcessCount();
+	quint32 getThreadCount();
+	double getBaseCpuSpeedGHz();
+	quint32 getCoreCount();
+	quint32 getLogicalProcessorCount();
+	quint32 getCacheSizeKB(int level);
+
+	QList<double> getCpuCoreUsage();
+
+	PDH_HQUERY m_cpuCoreQuery = nullptr;
+	QList<PDH_HCOUNTER> m_cpuCoreCounters;
+	bool initCpuCoreCounters();
 };

@@ -59,7 +59,7 @@ private:
     std::unique_ptr<IProcessTreeBuilder> _treeBuilder;
     std::unique_ptr<IDiskMonitor> _diskMonitor;
     std::unique_ptr<INetworkMonitor> _networkMonitor;
-    std::unique_ptr<IGPUMonitor> m_gpuMonitor;
+    std::unique_ptr<IGPUMonitor> _gpuMonitor;
     QTimer _updateTimer;
 
     QTabWidget* _tabWidget;
@@ -131,7 +131,7 @@ private:
     // Выпадающий список для выбора адаптера
     QComboBox* _networkAdapterCombo;
 
-    // Производительность
+    // Производительность GPU
     QWidget* m_gpuPerformancePage; // страница GPU
     QChartView* m_gpuChartView; // график GPU
     QChart* m_gpuChart;
@@ -140,12 +140,33 @@ private:
     QValueAxis* m_gpuAxisY;
     QWidget* m_gpuInfoWidget; // информация о GPU внизу
 
+    // CPU
+    QWidget* m_cpuPerformancePage; // страница CPU
+    QChartView* m_cpuChartView; // график CPU
+    QChart* m_cpuChart;
+    QLineSeries* m_cpuSeries;
+    QValueAxis* m_cpuAxisX;
+    QValueAxis* m_cpuAxisY;
+    QWidget* m_cpuInfoWidget; // информация о CPU внизу
+
+    // ОЗУ
+    QWidget* m_memoryPerformancePage; // страница Памяти
+    QChartView* m_memoryChartView; // график Памяти
+    QChart* m_memoryChart;
+    QLineSeries* m_memorySeriesUsed;
+    QValueAxis* m_memoryAxisX;
+    QValueAxis* m_memoryAxisY;
+    QWidget* m_memoryInfoWidget;
+
     void setUpProcessInfoContextMenu();
     void setUpProcessTree();
     void setUpPerformanceTab();
     void showProcessDetailsDialog(quint32 pid);
     void setUpNetworkPreformanceTab();
     void setUpGPUPerformanceTab();
+    void setUpCPUPerformanceTab();
+    void setUpMemoryPerformanceTab();
     void updateNetworkAdapterList();
+    void updatePerformanceTab(const SystemInfo& info);
     quint32 getPIDFromTreeIndex(const QModelIndex& index);
 };

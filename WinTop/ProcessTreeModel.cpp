@@ -4,14 +4,14 @@
 #include <QApplication>
 #include <QStyle>
 
-enum TreeColumn { tcName, tcPID, tcCPU, tcMemory, tcReadBytes, tcWriteBytes, tcNetworkIn, tcNetworkOut };
+enum TreeColumn { tcName, tcPID, tcCPU, tcMemory, tcReadBytes, tcWriteBytes, tcGPUUsage };
 
-const int COLUMNS_COUNT = 6;
+const int COLUMNS_COUNT = 7;
 
 ProcessTreeModel::ProcessTreeModel(QObject* parent)
     : QStandardItemModel(parent)
 {
-    setHorizontalHeaderLabels({ "Name", "PID", "CPU %", "Memory (MB)", "Disk Read (MB)", "Disk Write (MB)"});
+    setHorizontalHeaderLabels({ "Name", "PID", "CPU %", "Memory (MB)", "Disk Read (MB)", "Disk Write (MB)", "GPU %"});
 }
 
 void ProcessTreeModel::setTreeBuilder(std::unique_ptr<IProcessTreeBuilder> builder) {
@@ -33,6 +33,7 @@ QList<QStandardItem*> ProcessTreeModel::createTreeRow(const ProcessInfo& process
     treeRow[tcMemory] = new QStandardItem(QString::number(processInfo.memoryUsage / 1024 / 1024) + " MB");
     treeRow[tcReadBytes] = new QStandardItem(QString::number(processInfo.diskReadBytes / 1024 / 1024) + " MB");
     treeRow[tcWriteBytes] = new QStandardItem(QString::number(processInfo.diskWriteBytes / 1024 / 1024) + " MB");
+    treeRow[tcGPUUsage] = new QStandardItem(QString::number(processInfo.gpuUsage) + "%");
     
     if (_processControl) {
         if (_iconCache.contains(processInfo.pid)) {
@@ -57,7 +58,7 @@ void ProcessTreeModel::clearImageCashe(QSet<quint32> pidToRemove)
 
 ProcessItemRow ProcessTreeModel::createProcessItemRow(QList<QStandardItem*> row)
 {
-    return ProcessItemRow(row[tcName], row[tcPID], row[tcCPU], row[tcMemory], row[tcReadBytes], row[tcWriteBytes]);
+    return ProcessItemRow(row[tcName], row[tcPID], row[tcCPU], row[tcMemory], row[tcReadBytes], row[tcWriteBytes], row[tcGPUUsage]);
 }
 
 void ProcessTreeModel::updateData(const QList<ProcessInfo>& data) {
@@ -70,7 +71,7 @@ void ProcessTreeModel::updateData(const QList<ProcessInfo>& data) {
     {
         // Полная инициализация
         clear();
-        setHorizontalHeaderLabels({ "Name", "PID", "CPU %", "Memory (MB)", "Disk Read (MB)", "Disk Write (MB)"});
+        setHorizontalHeaderLabels({ "Name", "PID", "CPU %", "Memory (MB)", "Disk Read (MB)", "Disk Write (MB)", "GPU %"});
         _pidToRow.clear();
 
         // Двухфазная вставка: сначала корни, потом дети
@@ -211,6 +212,7 @@ void ProcessTreeModel::updateTreeFromNewFlatList(const QList<FlatProcessNode>& n
             if (row.memItem) row.memItem->setText(QString::number(node.info.memoryUsage / 1024 / 1024) + " MB");
             if (row.diskReadBytes) row.diskReadBytes->setText(QString::number(node.info.diskReadBytes / 1024 / 1024) + " MB");
             if (row.diskWriteBytes) row.diskWriteBytes->setText(QString::number(node.info.diskWriteBytes / 1024 / 1024) + " MB");
+            if (row.gpuUsage) row.gpuUsage->setText(QString::number(node.info.gpuUsage) + "%");
             if (row.nameItem && row.nameItem->text() != node.info.name) row.nameItem->setText(node.info.name);
         }
     }
@@ -268,20 +270,6 @@ void ProcessTreeModel::updateTreeFromNewFlatList(const QList<FlatProcessNode>& n
             }
         }
     }
-    /*// Если остались непоставленные из-за отсутствующего родителя, прикрепим к корню как fallback
-    if (!toPlace.isEmpty()) {
-        for (quint32 pid : toPlace) {
-            const auto& node = newByPid[pid];
-            auto* nameItem = new QStandardItem(node.info.name);
-            nameItem->setData(node.info.pid, Qt::UserRole + 1);
-            auto* pidItem = new QStandardItem(QString::number(node.info.pid));
-            auto* cpuItem = new QStandardItem(QString::number(node.info.cpuUsage, 'f', 2) + "%");
-            auto* memItem = new QStandardItem(QString::number(node.info.memoryUsage / 1024 / 1024) + " MB");
-            QList<QStandardItem*> row{ nameItem, pidItem, cpuItem, memItem };
-            invisibleRootItem()->appendRow(row);
-            _pidToRow.insert(node.info.pid, ProcessItemRow(nameItem, pidItem, cpuItem, memItem));
-        }
-    }*/
 
     // 3) Удалить отсутствующие узлы вместе с поддеревьями
     // Сначала соберем PID, которых нет в newTree

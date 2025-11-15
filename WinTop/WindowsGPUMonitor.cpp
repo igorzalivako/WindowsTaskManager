@@ -1,18 +1,61 @@
 ﻿#include "WindowsGPUMonitor.h"
 
-QList<GPUInfo> WindowsGPUMonitor::getNvidiaGPUInfo() {
+QList<GPUInfo> WindowsGPUMonitor::getGPUInfo()
+{
     QList<GPUInfo> gpus;
 
-    nvmlReturn_t result = nvmlInit();
-    if (result != NVML_SUCCESS) {
-        return gpus;
-    }
+    // Получаем информацию от NVIDIA через NVML
+    gpus = getNvidiaGPUInfo();
 
+    // Получаем информацию от AMD через ADL
+    gpus += getAMDGPUInfo();
+    return gpus;
+}
+
+QMap<quint32, ProcessGPUInfo> WindowsGPUMonitor::getProcessGPUInfo()
+{
+    QMap<quint32, ProcessGPUInfo> gpusPerProcessInfo;
+    
     unsigned int deviceCount = 0;
-    result = nvmlDeviceGetCount(&deviceCount);
+    nvmlReturn_t result = nvmlDeviceGetCount(&deviceCount);
     if (result != NVML_SUCCESS || deviceCount == 0) {
         nvmlShutdown();
-        return gpus;
+        return gpusPerProcessInfo;
+    }
+
+    for (unsigned int i = 0; i < deviceCount; i++) {
+        nvmlDevice_t device;
+        result = nvmlDeviceGetHandleByIndex(i, &device);
+        if (result == NVML_SUCCESS) {
+            ProcessGPUInfo gpuProcessInfo;
+
+            nvmlProcessUtilizationSample_t* utilization;
+            quint64 lastSeenTimeStamp;
+            quint32 processSamplesCount;
+
+            result = nvmlDeviceGetProcessUtilization(device, NULL, &processSamplesCount, 0);
+            utilization = new nvmlProcessUtilizationSample_t[processSamplesCount];
+            result = nvmlDeviceGetProcessUtilization(device, utilization, &processSamplesCount, 0);
+            for (int i = 0; i < processSamplesCount; i++)
+            {
+                gpuProcessInfo.pid = utilization[i].pid;
+                gpuProcessInfo.gpuUtilization = utilization[i].smUtil;
+                gpusPerProcessInfo[gpuProcessInfo.pid] = gpuProcessInfo;
+            }
+        }
+    }
+    
+    return gpusPerProcessInfo;
+}
+
+QList<GPUInfo> WindowsGPUMonitor::getNvidiaGPUInfo() {
+    QList<GPUInfo> gpusInfo;
+
+    unsigned int deviceCount = 0;
+    nvmlReturn_t result = nvmlDeviceGetCount(&deviceCount);
+    if (result != NVML_SUCCESS || deviceCount == 0) {
+        nvmlShutdown();
+        return gpusInfo;
     }
 
     for (unsigned int i = 0; i < deviceCount; i++) {
@@ -59,12 +102,11 @@ QList<GPUInfo> WindowsGPUMonitor::getNvidiaGPUInfo() {
                 gpu.driverVersion = driver;
             }
 
-            gpus.push_back(gpu);
+            gpusInfo.push_back(gpu);
         }
     }
 
-    nvmlShutdown();
-    return gpus;
+    return gpusInfo;
 }
 
 void* __stdcall ADL_Main_Memory_Alloc(int iSize)
@@ -82,7 +124,7 @@ void __stdcall ADL_Main_Memory_Free(void* lpBuffer)
     }
 }
 
-bool WindowsGPUMonitor::initializeADLX() {
+bool WindowsGPUMonitor::initializeADL() {
     HINSTANCE hDLL;		// Handle to DLL
     hDLL = LoadLibrary(L"atiadlxx.dll");
     if (hDLL == nullptr)
@@ -108,6 +150,12 @@ bool WindowsGPUMonitor::initializeADLX() {
     }
 
     return true;
+}
+
+bool WindowsGPUMonitor::initializeNVML()
+{
+    nvmlReturn_t result = nvmlInit();
+    return result == NVML_SUCCESS;
 }
 
 int WindowsGPUMonitor::GetAdapterActiveStatus(int adapterId, int& active)

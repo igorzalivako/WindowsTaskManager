@@ -4,10 +4,12 @@
 #include <QDebug>
 #include <QDateTime>
 
-WindowsSystemMonitor::WindowsSystemMonitor(IDiskMonitor* diskMonitor, INetworkMonitor* networkMonitor)
+WindowsSystemMonitor::WindowsSystemMonitor(IDiskMonitor* diskMonitor, INetworkMonitor* networkMonitor, IGPUMonitor* gpuMonitor)
 {
-    m_diskMonitor = diskMonitor;
+    _diskMonitor = diskMonitor;
     _networkMonitor = networkMonitor;
+    _gpuMonitor = gpuMonitor;
+    initCpuCoreCounters();
 }
 
 bool WindowsSystemMonitor::calculateCpuUsage(double& cpu_usage)
@@ -101,6 +103,16 @@ SystemInfo WindowsSystemMonitor::getSystemInfo() {
     // CPU
     calculateCpuUsage(info.cpuUsage);
 
+    info.baseSpeedGHz = getBaseCpuSpeedGHz();
+    info.coreCount = getCoreCount();
+    info.logicalProcessorCount = getLogicalProcessorCount();
+    info.cacheL1KB = getCacheSizeKB(1);
+    info.cacheL2KB = getCacheSizeKB(2);
+    info.cacheL3KB = getCacheSizeKB(3);
+    info.processCount = getProcessCount();
+    info.threadCount = getThreadCount();
+    info.cpuCoreUsage = getCpuCoreUsage();
+
     // Memory
     MEMORYSTATUSEX mem_status;
     mem_status.dwLength = sizeof(mem_status);
@@ -120,7 +132,10 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
     qint64 current_time = QDateTime::currentMSecsSinceEpoch();
 
     // Получаем статистику диска
-    auto processDiskInfo = m_diskMonitor->getProcessDiskInfo();
+    auto processDiskInfo = _diskMonitor->getProcessDiskInfo();
+
+    // Получаем статистику GPU
+    auto processGPUInfo = _gpuMonitor->getProcessGPUInfo();
 
     HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (h_snap == INVALID_HANDLE_VALUE) {
@@ -178,6 +193,12 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
             info.diskWriteOps = diskInfo.writeOperations;
         }
 
+        if (processGPUInfo.contains(pid))
+        {
+            const auto& gpuInfo = processGPUInfo[pid];
+            info.gpuUsage = gpuInfo.gpuUtilization;
+        }
+
         processes.append(info);
     } while (Process32Next(h_snap, &entry));
 
@@ -188,4 +209,164 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
     _processTimes = std::move(current_process_times);
 
     return processes;
+}
+
+quint32 WindowsSystemMonitor::getProcessCount() 
+{
+    quint32 count = 0;
+    HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (h_snap != INVALID_HANDLE_VALUE) {
+        PROCESSENTRY32 entry = { 0 };
+        entry.dwSize = sizeof(entry);
+        if (Process32First(h_snap, &entry)) {
+            do {
+                count++;
+            } while (Process32Next(h_snap, &entry));
+        }
+        CloseHandle(h_snap);
+    }
+    return count;
+}
+
+quint32 WindowsSystemMonitor::getThreadCount() 
+{
+    quint32 count = 0;
+    HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (h_snap != INVALID_HANDLE_VALUE) {
+        THREADENTRY32 entry = { 0 };
+        entry.dwSize = sizeof(entry);
+        if (Thread32First(h_snap, &entry)) {
+            do {
+                count++;
+            } while (Thread32Next(h_snap, &entry));
+        }
+        CloseHandle(h_snap);
+    }
+    return count;
+}
+
+double WindowsSystemMonitor::getBaseCpuSpeedGHz() {
+    HKEY hKey;
+    DWORD speed = 0;
+    DWORD size = sizeof(speed);
+
+    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
+        L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+        0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        if (RegQueryValueExW(hKey, L"~MHz", NULL, NULL, (LPBYTE)&speed, &size) == ERROR_SUCCESS) {
+            RegCloseKey(hKey);
+            return (double)speed / 1000.0; // MHz -> GHz
+        }
+        RegCloseKey(hKey);
+    }
+    return 0.0;
+}
+
+quint32 WindowsSystemMonitor::getCoreCount() {
+    DWORD length = 0;
+    GetLogicalProcessorInformation(NULL, &length);
+    if (length == 0) return 0;
+
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(length);
+    if (!buffer) return 0;
+
+    quint32 coreCount = 0;
+    if (GetLogicalProcessorInformation(buffer, &length)) {
+        DWORD count = length / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+        for (DWORD i = 0; i < count; i++) {
+            if (buffer[i].Relationship == RelationProcessorCore) {
+                coreCount++;
+            }
+        }
+    }
+
+    free(buffer);
+    return coreCount;
+}
+
+quint32 WindowsSystemMonitor::getLogicalProcessorCount() {
+    DWORD length = 0;
+    GetLogicalProcessorInformation(NULL, &length);
+    if (length == 0) return 0;
+
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(length);
+    if (!buffer) return 0;
+
+    if (GetLogicalProcessorInformation(buffer, &length)) {
+        DWORD count = length / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+        quint32 logicalCount = 0;
+        for (DWORD i = 0; i < count; i++) {
+            if (buffer[i].Relationship == RelationProcessorCore) {
+                logicalCount += __popcnt64(buffer[i].ProcessorMask);
+            }
+        }
+        free(buffer);
+        return logicalCount;
+    }
+
+    free(buffer);
+    return 0;
+}
+
+quint32 WindowsSystemMonitor::getCacheSizeKB(int level) {
+    DWORD length = 0;
+    GetLogicalProcessorInformation(NULL, &length);
+    if (length == 0) return 0;
+
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(length);
+    if (!buffer) return 0;
+
+    quint32 totalCacheSizeKB = 0;
+    if (GetLogicalProcessorInformation(buffer, &length)) {
+        DWORD count = length / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+        for (DWORD i = 0; i < count; i++) {
+            if (buffer[i].Relationship == RelationCache) {
+                PCACHE_DESCRIPTOR cache = &buffer[i].Cache;
+                if (cache->Level == level) {
+                    totalCacheSizeKB += cache->Size;
+                }
+            }
+        }
+    }
+
+    free(buffer);
+    return totalCacheSizeKB / 1024;
+}
+
+QList<double> WindowsSystemMonitor::getCpuCoreUsage() {
+    PdhCollectQueryData(m_cpuCoreQuery);
+    QList<double> coreUsage;
+
+    quint32 logicalCount = getLogicalProcessorCount();
+    for (quint32 i = 0; i < logicalCount && i < m_cpuCoreCounters.size(); i++) {
+        PDH_FMT_COUNTERVALUE value;
+        if (PdhGetFormattedCounterValue(m_cpuCoreCounters[i], PDH_FMT_DOUBLE, NULL, &value) == ERROR_SUCCESS) {
+            coreUsage.append(value.doubleValue);
+        }
+        else {
+            coreUsage.append(0.0);
+        }
+    }
+
+    return coreUsage;
+}
+
+bool WindowsSystemMonitor::initCpuCoreCounters() {
+    if (PdhOpenQuery(NULL, 0, &m_cpuCoreQuery) != ERROR_SUCCESS) {
+        return false;
+    }
+
+    quint32 logicalCount = getLogicalProcessorCount();
+    for (quint32 i = 0; i < logicalCount; i++) {
+        QString counterPath = QString("\\Processor(%1)\\% Processor Time").arg(i);
+        PDH_HCOUNTER counter;
+        if (PdhAddEnglishCounterW(m_cpuCoreQuery, reinterpret_cast<LPCWSTR>(counterPath.utf16()), 0, &counter) == ERROR_SUCCESS) {
+            m_cpuCoreCounters.append(counter);
+        }
+    }
+
+        // Collect initial data (нужно 2 раза для получения данных)
+    PdhCollectQueryData(m_cpuCoreQuery);
+    
+    return true;
 }

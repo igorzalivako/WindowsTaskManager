@@ -13,8 +13,8 @@ WinTop::WinTop(QWidget *parent)
     _treeBuilder = std::make_unique<WindowsProcessTreeBuilder>();
     _diskMonitor = std::make_unique<WindowsDiskMonitor>();
     _networkMonitor = std::make_unique<WindowsNetworkMonitor>();
-    m_gpuMonitor = std::make_unique<WindowsGPUMonitor>();
-    _monitor = std::make_unique<WindowsSystemMonitor>(_diskMonitor.get(), _networkMonitor.get());
+    _gpuMonitor = std::make_unique<WindowsGPUMonitor>();
+    _monitor = std::make_unique<WindowsSystemMonitor>(_diskMonitor.get(), _networkMonitor.get(), _gpuMonitor.get());
     connect(&_updateTimer, &QTimer::timeout, this, &WinTop::updateData);
     setupUI();
     _updateTimer.start(1000);
@@ -141,160 +141,12 @@ QList<ProcessInfo> WinTop::updateData()
     _cpuAxisX->setRange(x - 100, x);
     _memoryAxisX->setRange(x - 100, x);
 
-    // Обновляем метки
+    /*// Обновляем метки
     _osLabel->setText("Windows 10");
     _ramLabel->setText(QString("%1 / %2 GB").arg(info.usedMemory / 1024 / 1024 / 1024.0, 0, 'f', 1)
-        .arg(info.totalMemory / 1024 / 1024 / 1024.0, 0, 'f', 1));
+        .arg(info.totalMemory / 1024 / 1024 / 1024.0, 0, 'f', 1));*/
 
-    // === Обновляем данные диска ===
-    auto diskInfo = _diskMonitor->getDiskInfo();
-    auto processDiskInfo = _diskMonitor->getProcessDiskInfo();
-
-    // Обновляем график диска
-    static int diskX = 0;
-    double totalRead = diskInfo.readBytesPerSec, totalWrite = diskInfo.writeBytesPerSec;
-
-    _diskSeriesRead->append(diskX, totalRead / 1024 / 1024); // в МБ/с
-    _diskSeriesWrite->append(diskX, totalWrite / 1024 / 1024);
-    diskX++;
-    if (_diskSeriesRead->count() > 100) {
-        _diskSeriesRead->removePoints(0, 1);
-        _diskSeriesWrite->removePoints(0, 1);
-    }
-    _diskAxisX->setRange(diskX - 100, diskX);
-
-    // === Обновляем информацию о диске ===
-    QString diskInfoText = "Диски:\n";
-    for (const auto& disk : diskInfo.disks) {
-        double totalGB = disk.totalBytes / 1024.0 / 1024.0 / 1024.0;
-        double freeGB = disk.freeBytes / 1024.0 / 1024.0 / 1024.0;
-        double usedGB = totalGB - freeGB;
-        diskInfoText += QString("%1: %2 ГБ / %3 ГБ (использовано %4 ГБ)\n")
-            .arg(disk.name)
-            .arg(usedGB, 0, 'f', 2)
-            .arg(totalGB, 0, 'f', 2)
-            .arg(usedGB, 0, 'f', 2);
-    }
-    diskInfoText += QString("\nОбщий I/O: Чтение %1 МБ/с, Запись %2 МБ/с")
-        .arg(totalRead / 1024 / 1024, 0, 'f', 2)
-        .arg(totalWrite / 1024 / 1024, 0, 'f', 2);
-
-    // Найдём QLabel и обновим текст
-    auto* diskInfoLabel = _diskInfoWidget->findChild<QLabel*>("diskInfoLabel");
-    if (diskInfoLabel) {
-        diskInfoLabel->setText(diskInfoText);
-    }
-
-    // === Обновляем данные сети ===
-    auto networkInfo = _networkMonitor->getNetworkInfo();
-
-    // Обновляем график сети
-    static int networkX = 0;
-    double selectedRecv = 0, selectedSent = 0;
-    QString selectedAdapter = _networkAdapterCombo->currentData().toString();
-    if (networkX != 0) {
-        // Статистика для выбранного адаптера
-        for (const auto& net : networkInfo) {
-            if (net.name == selectedAdapter) {
-                selectedRecv = net.receiveBytesPerSec;
-                selectedSent = net.sendBytesPerSec;
-                break;
-            }
-        }
-    }
-
-    _networkSeriesRecv->append(networkX, selectedRecv / 1024 / 128); // в МБит/с
-    _networkSeriesSent->append(networkX, selectedSent / 1024 / 128);
-    networkX++;
-    if (_networkSeriesRecv->count() > 100) {
-        _networkSeriesRecv->removePoints(0, 1);
-        _networkSeriesSent->removePoints(0, 1);
-    }
-    _networkAxisX->setRange(networkX - 100, networkX);
-
-    // === Обновляем информацию о сети ===
-    QString networkInfoText = "Сетевые интерфейсы:\n";
-    for (const auto& net : networkInfo) {
-        if (net.name == selectedAdapter) {
-            networkInfoText += QString("(%1): Приём %2 МБит/с, Отправка %3 МБит/с\n")
-                .arg(net.description)
-                .arg(net.receiveBytesPerSec / 1024 / 128, 0, 'f', 2)
-                .arg(net.sendBytesPerSec / 1024 / 128, 0, 'f', 2);
-        }
-    }
-
-    // Найдём QLabel и обновим текст
-    auto* networkInfoLabel = _networkInfoWidget->findChild<QLabel*>("networkInfoLabel");
-    if (networkInfoLabel) {
-        networkInfoLabel->setText(networkInfoText);
-    }
-
-    // === Обновляем данные GPU ===
-    auto gpuInfo = m_gpuMonitor->getGPUInfo();
-
-    // Обновляем график GPU
-    static int gpuX = 0;
-    double maxLoad = 0;
-    for (const auto& gpu : gpuInfo) {
-        QString gpuName = gpu.name;
-
-        if (!m_gpuSeriesMap.contains(gpuName)) {
-            // Создаём новый график
-            auto* series = new QLineSeries();
-            series->setName(gpuName); // подпись в легенде
-            m_gpuChart->addSeries(series);
-            series->attachAxis(m_gpuAxisX);
-            series->attachAxis(m_gpuAxisY);
-            m_gpuSeriesMap[gpuName] = series;
-        }
-        auto* series = m_gpuSeriesMap[gpuName];
-        series->append(gpuX, gpu.usage);
-    }
-    gpuX++;
-
-    // Удаляем лишние графики, если видеокарты исчезли
-    QStringList currentNames;
-    for (const auto& gpu : gpuInfo) {
-        currentNames.append(gpu.name);
-    }
-    for (auto it = m_gpuSeriesMap.begin(); it != m_gpuSeriesMap.end();) {
-        if (!currentNames.contains(it.key())) {
-            m_gpuChart->removeSeries(it.value());
-            delete it.value();
-            it = m_gpuSeriesMap.erase(it);
-        }
-        else {
-            ++it;
-        }
-    }
-
-    gpuX++;
-    // Удаляем старые точки, если нужно
-    for (auto* series : m_gpuSeriesMap) {
-        if (series->count() > 100) {
-            series->removePoints(0, 1);
-        }
-    }
-    m_gpuAxisX->setRange(gpuX - 100, gpuX);
-
-    // === Обновляем информацию о GPU ===
-    QString gpuInfoText = "Видеокарты:\n";
-    for (const auto& gpu : gpuInfo) {
-        gpuInfoText += QString("%1: Загрузка %2%, Память %3 ГБ / %4 ГБ, Производитель %5, Температура: %7 C, Текущее энергопотребление: %6 Вт\n")
-            .arg(gpu.name)
-            .arg(gpu.usage)
-            .arg(gpu.usedMemoryBytes / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
-            .arg(gpu.totalMemoryBytes / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
-            .arg(gpu.vendor)
-            .arg(gpu.powerUsage)
-            .arg(gpu.temperatureCelsius);
-    }
-
-    // Найдём QLabel и обновим текст
-    auto* gpuInfoLabel = m_gpuInfoWidget->findChild<QLabel*>("gpuInfoLabel");
-    if (gpuInfoLabel) {
-        gpuInfoLabel->setText(gpuInfoText);
-    }
+    updatePerformanceTab(info);
 
     return processes;
 }
@@ -425,12 +277,14 @@ void WinTop::setUpPerformanceTab()
     gpuItem->setText(0, "GPU");
     gpuItem->setData(0, Qt::UserRole, "gpu");
 
-    // ... можно добавить GPU, если реализуешь
-
     perfLayout->addWidget(_performanceTree);
 
     // Основная область (графики)
     _performanceStack = new QStackedWidget();
+
+    setUpCPUPerformanceTab();
+
+    setUpMemoryPerformanceTab();
 
     // === Страница диска ===
     _diskPerformancePage = new QWidget();
@@ -554,13 +408,22 @@ void WinTop::setUpNetworkPreformanceTab()
             if (resource == "disk") {
                 _performanceStack->setCurrentWidget(_diskPerformancePage);
             }
-            else if (resource == "network") {
+            else if (resource == "network") 
+            {
                 _performanceStack->setCurrentWidget(_networkPerformancePage);
                 updateNetworkAdapterList();
             } 
             else if (resource == "gpu")
             {
                 _performanceStack->setCurrentWidget(m_gpuPerformancePage);
+            }
+            else if (resource == "cpu")
+            {
+                _performanceStack->setCurrentWidget(m_cpuPerformancePage);
+            }
+            else if (resource == "memory")
+            {
+                _performanceStack->setCurrentWidget(m_memoryPerformancePage);
             }
             // ... другие ресурсы
         }
@@ -604,6 +467,80 @@ void WinTop::setUpGPUPerformanceTab()
     _performanceStack->addWidget(m_gpuPerformancePage);
 }
 
+void WinTop::setUpCPUPerformanceTab()
+{
+    m_cpuPerformancePage = new QWidget();
+    auto* cpuPerfLayout = new QVBoxLayout(m_cpuPerformancePage);
+
+    // График
+    m_cpuChart = new QChart();
+    m_cpuSeries = new QLineSeries();
+    m_cpuSeries->setName("Загрузка ЦП %");
+    m_cpuChart->addSeries(m_cpuSeries);
+    m_cpuChart->legend()->show();
+
+    m_cpuAxisX = new QValueAxis;
+    m_cpuAxisY = new QValueAxis;
+    m_cpuAxisX->setRange(0, 100);
+    m_cpuAxisY->setRange(0, 100);
+    m_cpuChart->addAxis(m_cpuAxisX, Qt::AlignBottom);
+    m_cpuChart->addAxis(m_cpuAxisY, Qt::AlignLeft);
+    m_cpuSeries->attachAxis(m_cpuAxisX);
+    m_cpuSeries->attachAxis(m_cpuAxisY);
+
+    m_cpuChartView = new QChartView(m_cpuChart);
+    m_cpuChartView->setRenderHint(QPainter::Antialiasing);
+
+    cpuPerfLayout->addWidget(m_cpuChartView);
+
+    // Информация о CPU (внизу)
+    m_cpuInfoWidget = new QWidget();
+    auto* cpuInfoLayout = new QVBoxLayout(m_cpuInfoWidget);
+    auto cpuInfoLabel = new QLabel("Информация о CPU появится здесь...");
+    cpuInfoLabel->setObjectName("cpuInfoLabel");
+    cpuInfoLayout->addWidget(cpuInfoLabel);
+    cpuPerfLayout->addWidget(m_cpuInfoWidget);
+
+    _performanceStack->addWidget(m_cpuPerformancePage);
+}
+
+void WinTop::setUpMemoryPerformanceTab()
+{
+    m_memoryPerformancePage = new QWidget();
+    auto* memoryPerfLayout = new QVBoxLayout(m_memoryPerformancePage);
+
+    // График
+    m_memoryChart = new QChart();
+    m_memorySeriesUsed = new QLineSeries();
+    m_memorySeriesUsed->setName("Использовано");
+    m_memoryChart->addSeries(m_memorySeriesUsed);
+    m_memoryChart->legend()->show();
+
+    m_memoryAxisX = new QValueAxis;
+    m_memoryAxisY = new QValueAxis;
+    m_memoryAxisX->setRange(0, 100);
+    m_memoryAxisY->setRange(0, 100);
+    m_memoryChart->addAxis(m_memoryAxisX, Qt::AlignBottom);
+    m_memoryChart->addAxis(m_memoryAxisY, Qt::AlignLeft);
+    m_memorySeriesUsed->attachAxis(m_memoryAxisX);
+    m_memorySeriesUsed->attachAxis(m_memoryAxisY);
+
+    m_memoryChartView = new QChartView(m_memoryChart);
+    m_memoryChartView->setRenderHint(QPainter::Antialiasing);
+
+    memoryPerfLayout->addWidget(m_memoryChartView);
+
+    // Информация о Памяти (внизу)
+    m_memoryInfoWidget = new QWidget();
+    auto* memoryInfoLayout = new QVBoxLayout(m_memoryInfoWidget);
+    auto memoryInfoLabel = new QLabel("Информация о RAM появится здесь...");
+    memoryInfoLabel->setObjectName("memoryInfoLabel");
+    memoryInfoLayout->addWidget(memoryInfoLabel);
+    memoryPerfLayout->addWidget(m_memoryInfoWidget);
+
+    _performanceStack->addWidget(m_memoryPerformancePage);
+}
+
 void WinTop::updateNetworkAdapterList() {
     auto networkInfo = _networkMonitor->getNetworkInfo();
 
@@ -613,6 +550,225 @@ void WinTop::updateNetworkAdapterList() {
         // Добавляем только активные адаптеры
         _networkAdapterCombo->addItem(QString("%1 (%2)").arg(net.description), net.name);
     }
+}
+
+void WinTop::updatePerformanceTab(const SystemInfo& info)
+{
+    // === Обновляем данные диска ===
+    auto diskInfo = _diskMonitor->getDiskInfo();
+    auto processDiskInfo = _diskMonitor->getProcessDiskInfo();
+
+    // Обновляем график диска
+    static int diskX = 0;
+    double totalRead = diskInfo.readBytesPerSec, totalWrite = diskInfo.writeBytesPerSec;
+
+    _diskSeriesRead->append(diskX, totalRead / 1024 / 1024); // в МБ/с
+    _diskSeriesWrite->append(diskX, totalWrite / 1024 / 1024);
+    diskX++;
+    if (_diskSeriesRead->count() > 100) {
+        _diskSeriesRead->removePoints(0, 1);
+        _diskSeriesWrite->removePoints(0, 1);
+    }
+    _diskAxisX->setRange(diskX - 100, diskX);
+
+    // === Обновляем информацию о диске ===
+    QString diskInfoText = "Диски:\n";
+    for (const auto& disk : diskInfo.disks) {
+        double totalGB = disk.totalBytes / 1024.0 / 1024.0 / 1024.0;
+        double freeGB = disk.freeBytes / 1024.0 / 1024.0 / 1024.0;
+        double usedGB = totalGB - freeGB;
+        diskInfoText += QString("%1: %2 ГБ / %3 ГБ (использовано %4 ГБ)\n")
+            .arg(disk.name)
+            .arg(usedGB, 0, 'f', 2)
+            .arg(totalGB, 0, 'f', 2)
+            .arg(usedGB, 0, 'f', 2);
+    }
+    diskInfoText += QString("\nОбщий I/O: Чтение %1 МБ/с, Запись %2 МБ/с")
+        .arg(totalRead / 1024 / 1024, 0, 'f', 2)
+        .arg(totalWrite / 1024 / 1024, 0, 'f', 2);
+
+    // Найдём QLabel и обновим текст
+    auto* diskInfoLabel = _diskInfoWidget->findChild<QLabel*>("diskInfoLabel");
+    if (diskInfoLabel) {
+        diskInfoLabel->setText(diskInfoText);
+    }
+
+    // === Обновляем данные сети ===
+    auto networkInfo = _networkMonitor->getNetworkInfo();
+
+    // Обновляем график сети
+    static int networkX = 0;
+    double selectedRecv = 0, selectedSent = 0;
+    QString selectedAdapter = _networkAdapterCombo->currentData().toString();
+    if (networkX != 0) {
+        // Статистика для выбранного адаптера
+        for (const auto& net : networkInfo) {
+            if (net.name == selectedAdapter) {
+                selectedRecv = net.receiveBytesPerSec;
+                selectedSent = net.sendBytesPerSec;
+                break;
+            }
+        }
+    }
+
+    _networkSeriesRecv->append(networkX, selectedRecv / 1024 / 128); // в МБит/с
+    _networkSeriesSent->append(networkX, selectedSent / 1024 / 128);
+    networkX++;
+    if (_networkSeriesRecv->count() > 100) {
+        _networkSeriesRecv->removePoints(0, 1);
+        _networkSeriesSent->removePoints(0, 1);
+    }
+    _networkAxisX->setRange(networkX - 100, networkX);
+
+    // === Обновляем информацию о сети ===
+    QString networkInfoText = "Сетевые интерфейсы:\n";
+    for (const auto& net : networkInfo) {
+        if (net.name == selectedAdapter) {
+            networkInfoText += QString("(%1): Приём %2 МБит/с, Отправка %3 МБит/с\n")
+                .arg(net.description)
+                .arg(net.receiveBytesPerSec / 1024 / 128, 0, 'f', 2)
+                .arg(net.sendBytesPerSec / 1024 / 128, 0, 'f', 2);
+        }
+    }
+
+    // Найдём QLabel и обновим текст
+    auto* networkInfoLabel = _networkInfoWidget->findChild<QLabel*>("networkInfoLabel");
+    if (networkInfoLabel) {
+        networkInfoLabel->setText(networkInfoText);
+    }
+
+    // === Обновляем данные GPU ===
+    auto gpuInfo = _gpuMonitor->getGPUInfo();
+    auto i = _gpuMonitor->getProcessGPUInfo();
+    // Обновляем график GPU
+    static int gpuX = 0;
+    double maxLoad = 0;
+    for (const auto& gpu : gpuInfo) {
+        QString gpuName = gpu.name;
+
+        if (!m_gpuSeriesMap.contains(gpuName)) {
+            // Создаём новый график
+            auto* series = new QLineSeries();
+            series->setName(gpuName); // подпись в легенде
+            m_gpuChart->addSeries(series);
+            series->attachAxis(m_gpuAxisX);
+            series->attachAxis(m_gpuAxisY);
+            m_gpuSeriesMap[gpuName] = series;
+        }
+        auto* series = m_gpuSeriesMap[gpuName];
+        series->append(gpuX, gpu.usage);
+    }
+    gpuX++;
+
+    // Удаляем лишние графики, если видеокарты исчезли
+    QStringList currentNames;
+    for (const auto& gpu : gpuInfo) {
+        currentNames.append(gpu.name);
+    }
+    for (auto it = m_gpuSeriesMap.begin(); it != m_gpuSeriesMap.end();) {
+        if (!currentNames.contains(it.key())) {
+            m_gpuChart->removeSeries(it.value());
+            delete it.value();
+            it = m_gpuSeriesMap.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
+
+    gpuX++;
+    // Удаляем старые точки, если нужно
+    for (auto* series : m_gpuSeriesMap) {
+        if (series->count() > 100) {
+            series->removePoints(0, 1);
+        }
+    }
+    m_gpuAxisX->setRange(gpuX - 100, gpuX);
+
+    // === Обновляем информацию о GPU ===
+    QString gpuInfoText = "Видеокарты:\n";
+    for (const auto& gpu : gpuInfo) {
+        gpuInfoText += QString("%1: Загрузка %2%, Память %3 ГБ / %4 ГБ, Производитель %5, Температура: %7 C, Текущее энергопотребление: %6 Вт\n")
+            .arg(gpu.name)
+            .arg(gpu.usage)
+            .arg(gpu.usedMemoryBytes / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
+            .arg(gpu.totalMemoryBytes / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
+            .arg(gpu.vendor)
+            .arg(gpu.powerUsage)
+            .arg(gpu.temperatureCelsius);
+    }
+
+    // Найдём QLabel и обновим текст
+    auto* gpuInfoLabel = m_gpuInfoWidget->findChild<QLabel*>("gpuInfoLabel");
+    if (gpuInfoLabel) {
+        gpuInfoLabel->setText(gpuInfoText);
+    }
+    
+    // Обновляем график CPU
+    static int cpuX = 0;
+    m_cpuSeries->append(cpuX, info.cpuUsage);
+    cpuX++;
+    if (m_cpuSeries->count() > 100) {
+        m_cpuSeries->removePoints(0, 1);
+    }
+    m_cpuAxisX->setRange(cpuX - 100, cpuX);
+
+    // === Обновляем информацию о CPU ===
+    QString cpuInfoText = QString(
+        "Загрузка ЦП: %1%\n"
+        "Базовая частота: %2 ГГц\n"
+        "Число процессов: %3\n"
+        "Число потоков: %4\n"
+        "Число ядер: %5\n"
+        "Число логических процессоров: %6\n"
+        "Кэш L1: %7 КБ\n"
+        "Кэш L2: %8 КБ\n"
+        "Кэш L3: %9 МБ"
+        "\nЗагрузка ядер:"
+    ).arg(info.cpuUsage, 0, 'f', 2)
+        .arg(info.baseSpeedGHz, 0, 'f', 2)
+        .arg(info.processCount)
+        .arg(info.threadCount)
+        .arg(info.coreCount)
+        .arg(info.logicalProcessorCount)
+        .arg(info.cacheL1KB)
+        .arg(info.cacheL2KB)
+        .arg(info.cacheL3KB / 1024);
+    // Добавь сюда другую информацию о CPU, если нужно
+
+    for (int i = 0; i < info.cpuCoreUsage.size(); i++) {
+        cpuInfoText += QString("\n  Ядро %1: %2%").arg(i).arg(info.cpuCoreUsage[i], 0, 'f', 2);
+    }
+
+    // Найдём QLabel и обновим текст
+    auto* cpuInfoLabel = m_cpuInfoWidget->findChild<QLabel*>("cpuInfoLabel");
+    if (cpuInfoLabel) {
+        cpuInfoLabel->setText(cpuInfoText);
+    }
+
+    // === Обновляем данные Памяти ===
+    // Обновляем график Памяти
+    static int memoryX = 0;
+    m_memorySeriesUsed->append(memoryX, (double)info.usedMemory / (double)info.totalMemory * 100.0);
+    memoryX++;
+    if (m_memorySeriesUsed->count() > 100) {
+        m_memorySeriesUsed->removePoints(0, 1);
+    }
+    m_memoryAxisX->setRange(memoryX - 100, memoryX);
+
+    // === Обновляем информацию о Памяти ===
+    QString memoryInfoText = QString(
+        "Память: %1 ГБ / %2 ГБ (использовано %3%)\n"
+    ).arg(info.usedMemory / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
+        .arg(info.totalMemory / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
+        .arg((double)info.usedMemory / (double)info.totalMemory * 100.0, 0, 'f', 2);
+
+    // Найдём QLabel и обновим текст
+    auto* memoryInfoLabel = m_memoryInfoWidget->findChild<QLabel*>("memoryInfoLabel");
+    if (memoryInfoLabel) {
+        memoryInfoLabel->setText(memoryInfoText);
+    }
+
 }
 
 void WinTop::killSelectedProcesses()

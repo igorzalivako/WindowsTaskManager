@@ -1,21 +1,27 @@
 #include "ProcessTableModel.h"
 #include <QApplication>
 
-const int COLUMNS_COUNT = 6;
+const int COLUMNS_COUNT = 7;
+
+enum ProcessTableColumns { ptcPID, ptcName, ptcCPUUsage, ptcMemoryUsage, ptcDiskReadBytes, ptcDiskWriteBytes, ptcGPUUsage };
 
 ProcessTableModel::ProcessTableModel(QObject* parent)
-    : QAbstractTableModel(parent) {
+    : QAbstractTableModel(parent) 
+{
 }
 
-int ProcessTableModel::rowCount(const QModelIndex& parent) const {
+int ProcessTableModel::rowCount(const QModelIndex& parent) const 
+{
     return _processes.size();
 }
 
-int ProcessTableModel::columnCount(const QModelIndex& parent) const {
-    return COLUMNS_COUNT; // PID, Name, CPU, Memory, Disk Read, Disk Write, Network In, Network Out
+int ProcessTableModel::columnCount(const QModelIndex& parent) const 
+{
+    return COLUMNS_COUNT; // PID, Name, CPU, Memory, Disk Read, Disk Write, GPUUsage
 }
 
-QVariant ProcessTableModel::data(const QModelIndex& index, int role) const {
+QVariant ProcessTableModel::data(const QModelIndex& index, int role) const 
+{
     if (!index.isValid() || index.row() >= _processes.size()) 
     {
         return QVariant();
@@ -27,18 +33,14 @@ QVariant ProcessTableModel::data(const QModelIndex& index, int role) const {
     {
         switch (index.column()) 
         {
-        case 0:
-            return proc.pid;
-        case 1:
-            return proc.name;
-        case 2:
-            return QString::number(proc.cpuUsage, 'f', 2) + "%";
-        case 3:
-            return QString::number(proc.memoryUsage / 1024 / 1024) + " MB";
-        case 4: return QString::number(proc.diskReadBytes / 1024 / 1024) + " MB";
-        case 5: return QString::number(proc.diskWriteBytes / 1024 / 1024) + " MB";
-        default:
-            return QVariant();
+        case ptcPID: return proc.pid;
+        case ptcName: return proc.name;
+        case ptcCPUUsage: return QString::number(proc.cpuUsage, 'f', 2) + "%";
+        case ptcMemoryUsage: return QString::number(proc.memoryUsage / 1024 / 1024) + " MB";
+        case ptcDiskReadBytes: return QString::number(proc.diskReadBytes / 1024 / 1024) + " MB";
+        case ptcDiskWriteBytes: return QString::number(proc.diskWriteBytes / 1024 / 1024) + " MB";
+        case ptcGPUUsage: return QString::number(proc.gpuUsage) + "%";
+        default: return QVariant();
         }
     }
     // Для сортировки
@@ -46,18 +48,14 @@ QVariant ProcessTableModel::data(const QModelIndex& index, int role) const {
     {
         switch (index.column()) 
         {
-        case 0: // PID
-            return proc.pid;
-        case 1:
-            return proc.name;
-        case 2: // CPU %
-            return proc.cpuUsage;
-        case 3: // Memory (MB)
-            return proc.memoryUsage;
-        case 4: return proc.diskReadBytes; 
-        case 5: return proc.diskWriteBytes; 
-        default:
-            return QVariant();
+        case ptcPID: return proc.pid;
+        case ptcName: return proc.name;
+        case ptcCPUUsage: return proc.cpuUsage;
+        case ptcMemoryUsage: return proc.memoryUsage;
+        case ptcDiskReadBytes: return proc.diskReadBytes;
+        case ptcDiskWriteBytes: return proc.diskWriteBytes;
+        case ptcGPUUsage: return proc.gpuUsage;
+        default: return QVariant();
         }
     }
 
@@ -81,18 +79,14 @@ QVariant ProcessTableModel::data(const QModelIndex& index, int role) const {
 QVariant ProcessTableModel::headerData(int section, Qt::Orientation orientation, int role) const {
     if (role == Qt::DisplayRole && orientation == Qt::Horizontal) {
         switch (section) {
-        case 0:
-            return "PID";
-        case 1:
-            return "Name";
-        case 2:
-            return "CPU %";
-        case 3:
-            return "RAM (MB)";
-        case 4: return "Disk Read (MB)";
-        case 5: return "Disk Write (MB)";
-        default:
-            return QVariant();
+        case ptcPID: return "PID";
+        case ptcName: return "Name";
+        case ptcCPUUsage: return "CPU %";
+        case ptcMemoryUsage: return "RAM (MB)";
+        case ptcDiskReadBytes: return "Disk Read (MB)";
+        case ptcDiskWriteBytes: return "Disk Write (MB)";
+        case ptcGPUUsage: return "GPU %";
+        default: return QVariant();
         }
     }
     return QAbstractTableModel::headerData(section, orientation, role);

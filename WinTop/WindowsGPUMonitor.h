@@ -18,20 +18,13 @@ typedef int (*ADL2_NEW_QUERYPMLOGDATA_GET)(ADL_CONTEXT_HANDLE context, int iAdap
 typedef int (*ADL2_ADAPTER_MEMORYINFO_GET)(void*, int, ADLMemoryInfo2*);
 typedef int (*ADL2_ADAPTER_VRAMUSAGE_GET)(void*, int, int*);
 
-class WindowsGPUMonitor : public IGPUMonitor {
+class WindowsGPUMonitor : public IGPUMonitor 
+{
 public:
-    WindowsGPUMonitor() : nvmlInitialized(false), adlInitialized(false) { adlInitialized = initializeADLX(); };
+    WindowsGPUMonitor() : nvmlInitialized(false), adlInitialized(false) { adlInitialized = initializeADL() && initializeNVML(); };
     ~WindowsGPUMonitor() {};
-    QList<GPUInfo> getGPUInfo() override {
-        QList<GPUInfo> gpus;
-
-        // Получаем информацию от NVIDIA через NVML
-        gpus = getNvidiaGPUInfo();
-
-        // Получаем информацию от AMD через ADL
-        gpus += getAMDGPUInfo();
-        return gpus;
-    }
+    QList<GPUInfo> getGPUInfo() override;
+    QMap<quint32, ProcessGPUInfo> getProcessGPUInfo() override;
 
 private:
     bool nvmlInitialized;
@@ -54,7 +47,8 @@ private:
     QList<GPUInfo> getNvidiaGPUInfo();
     QList<GPUInfo> getAMDGPUInfo();
 
-    bool initializeADLX();    
+    bool initializeADL(); 
+    bool initializeNVML();
     int GetAdapterActiveStatus(int adapterId, int& active);
     int GetUsedMemory(int adapterId);
 };
