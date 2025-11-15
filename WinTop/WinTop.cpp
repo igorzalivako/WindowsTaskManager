@@ -28,55 +28,6 @@ void WinTop::setupUI()
     
     _tabWidget = new QTabWidget(this);
 
-    _overviewTab = new QWidget();
-    auto* overviewLayout = new QVBoxLayout(_overviewTab);
-
-    // CPU Chart
-    _cpuChart = new QChart();
-    _cpuSeries = new QLineSeries();
-    _cpuChart->addSeries(_cpuSeries);
-    _cpuChart->legend()->hide();
-    _cpuAxisX = new QValueAxis;
-    _cpuAxisY = new QValueAxis;
-    _cpuAxisX->setRange(0, 100);
-    _cpuAxisY->setRange(0, 100);
-    _cpuChart->addAxis(_cpuAxisX, Qt::AlignBottom);
-    _cpuChart->addAxis(_cpuAxisY, Qt::AlignLeft);
-    _cpuSeries->attachAxis(_cpuAxisX);
-    _cpuSeries->attachAxis(_cpuAxisY);
-
-    _cpuChartView = new QChartView(_cpuChart);
-    _cpuChartView->setRenderHint(QPainter::Antialiasing);
-
-    // Memory Chart
-    _memoryChart = new QChart();
-    _memorySeries = new QLineSeries();
-    _memoryChart->addSeries(_memorySeries);
-    _memoryChart->legend()->hide();
-    _memoryAxisX = new QValueAxis;
-    _memoryAxisY = new QValueAxis;
-    _memoryAxisX->setRange(0, 100);
-    _memoryAxisY->setRange(0, 100);
-    _memoryChart->addAxis(_memoryAxisX, Qt::AlignBottom);
-    _memoryChart->addAxis(_memoryAxisY, Qt::AlignLeft);
-    _memorySeries->attachAxis(_memoryAxisX);
-    _memorySeries->attachAxis(_memoryAxisY);
-
-    _memoryChartView = new QChartView(_memoryChart);
-    _memoryChartView->setRenderHint(QPainter::Antialiasing);
-
-    // System Info
-    auto* infoGroup = new QGroupBox("System Information");
-    auto* infoLayout = new QFormLayout(infoGroup);
-    _osLabel = new QLabel("Windows 10");
-    _ramLabel = new QLabel("4.0 / 16.0 GB");
-    infoLayout->addRow("OS:", _osLabel);
-    infoLayout->addRow("RAM:", _ramLabel);
-
-    overviewLayout->addWidget(_cpuChartView);
-    overviewLayout->addWidget(_memoryChartView);
-    overviewLayout->addWidget(infoGroup);
-
     // === Processes Tab ===
     _processesTab = new QWidget();
     auto* processLayout = new QVBoxLayout(_processesTab);
@@ -111,7 +62,6 @@ void WinTop::setupUI()
     setUpPerformanceTab();
 
     // === Add Tabs ===
-    _tabWidget->addTab(_overviewTab, "Обзор");
     _tabWidget->addTab(_processesTab, "Процессы");
     _tabWidget->addTab(_treeTab, "Дерево процессов");
     _tabWidget->addTab(_performanceTab, "Производительность");
@@ -129,17 +79,6 @@ QList<ProcessInfo> WinTop::updateData()
 
     // Обновляем дерево
     _processTreeModel->updateData(processes);
-
-    static int x = 0;
-    _cpuSeries->append(x, info.cpuUsage);
-    _memorySeries->append(x, (double)info.usedMemory / (double)info.totalMemory * 100.0);
-    x++;
-    if (_cpuSeries->count() > 100) {
-        _cpuSeries->removePoints(0, 1);
-        _memorySeries->removePoints(0, 1);
-    }
-    _cpuAxisX->setRange(x - 100, x);
-    _memoryAxisX->setRange(x - 100, x);
 
     /*// Обновляем метки
     _osLabel->setText("Windows 10");
