@@ -66,7 +66,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
-      <AdditionalDependencies>Qt6Chartsd.lib;pdh.lib;iphlpapi.lib;nvml.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Qt6Chartsd.lib;pdh.lib;iphlpapi.lib;nvml.lib;version.lib;ole32.lib;oleaut32.lib;taskschd.lib;wintrust.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>D:\Курсач;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ClCompile>
@@ -110,11 +110,14 @@
     <ClCompile Include="ProcessTableModel.cpp" />
     <ClCompile Include="ProcessTree.cpp" />
     <ClCompile Include="ProcessTreeModel.cpp" />
+    <ClCompile Include="ServiceTableModel.cpp" />
     <ClCompile Include="WindowsDiskMonitor.cpp" />
     <ClCompile Include="WindowsGPUMonitor.cpp" />
     <ClCompile Include="WindowsNetworkMonitor.cpp" />
     <ClCompile Include="WindowsProcessControl.cpp" />
     <ClCompile Include="WindowsProcessTreeBuilder.cpp" />
+    <ClCompile Include="WindowsServiceControl.cpp" />
+    <ClCompile Include="WIndowsServiceMonitor.cpp" />
     <ClCompile Include="WindowsSystemMonitor.cpp" />
     <ClCompile Include="WinTop.cpp" />
     <ClCompile Include="main.cpp" />
@@ -132,12 +135,17 @@
     <QtMoc Include="ProcessTreeModel.h" />
     <ClInclude Include="IProcessTreeBuilder.h" />
     <QtMoc Include="ProcessDetailsDialog.h" />
+    <ClInclude Include="IServiceControl.h" />
+    <ClInclude Include="IServiceMonitor.h" />
     <ClInclude Include="ProcessTree.h" />
+    <QtMoc Include="ServiceTableModel.h" />
     <ClInclude Include="WindowsDiskMonitor.h" />
     <ClInclude Include="WindowsGPUMonitor.h" />
     <ClInclude Include="WindowsNetworkMonitor.h" />
     <ClInclude Include="WindowsProcessControl.h" />
     <ClInclude Include="WindowsProcessTreeBuilder.h" />
+    <ClInclude Include="WindowsServiceControl.h" />
+    <ClInclude Include="WIndowsServiceMonitor.h" />
     <ClInclude Include="WindowsSystemMonitor.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

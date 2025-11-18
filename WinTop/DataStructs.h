@@ -118,3 +118,24 @@ struct FlatProcessNode {
 	ProcessInfo info;
 	quint32 parentPID = 0;
 };
+
+enum ServiceStatus { ssRunning, ssStopped, ssPaused, ssStartPending, ssStopPending, ssContinuePending, ssPausePending, ssUnknown };
+inline const char* ServiceStatusString[] { "Выполняется", "Остановлено", "Приостановлено", "Запускается", "Останавливается", "Возобновляется", "Приостанавливается", "Неизвестен" };
+
+struct ServiceInfo {
+	QString name;
+	quint32 processId = 0;
+	QString description;
+	ServiceStatus status;
+};
+//
+//enum AutoStatus { asEnabled, asDisabled };
+//inline const char* AutoStatusString[]{ "Включено", "Отключено" };
+//
+//struct AutoStartInfo {
+//	QString name;
+//	QString publisher;
+//	AutoStatus status;
+//	QString command; 
+//	QString location; 
+//};

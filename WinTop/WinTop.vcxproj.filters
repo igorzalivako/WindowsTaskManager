@@ -68,6 +68,15 @@
     <ClCompile Include="WindowsGPUMonitor.cpp">
       <Filter>platform\Windows</Filter>
     </ClCompile>
+    <ClCompile Include="WIndowsServiceMonitor.cpp">
+      <Filter>platform\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="ServiceTableModel.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="WindowsServiceControl.cpp">
+      <Filter>platform\Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="WinTop.ui">
@@ -85,6 +94,9 @@
       <Filter>ui</Filter>
     </QtMoc>
     <QtMoc Include="ProcessDetailsDialog.h">
+      <Filter>ui</Filter>
+    </QtMoc>
+    <QtMoc Include="ServiceTableModel.h">
       <Filter>ui</Filter>
     </QtMoc>
   </ItemGroup>
@@ -129,6 +141,18 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="WindowsGPUMonitor.h">
+      <Filter>platform\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="IServiceMonitor.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="WIndowsServiceMonitor.h">
+      <Filter>platform\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="IServiceControl.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowsServiceControl.h">
       <Filter>platform\Windows</Filter>
     </ClInclude>
   </ItemGroup>

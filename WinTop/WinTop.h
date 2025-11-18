@@ -35,6 +35,8 @@
 #include <IDiskMonitor.h>
 #include <INetworkMonitor.h>
 #include <IGPUMonitor.h>
+#include "ServiceTableModel.h"
+#include "IServiceControl.h"
 
 class WinTop : public QMainWindow
 {
@@ -51,6 +53,7 @@ private slots:
     void onTreeContextMenu(const QPoint& pos);
     void killSelectedProcesses();
     void showProcessDetails();
+    void onServiceContextMenu(const QPoint& pos);
 
 private:
     void setupUI();
@@ -60,29 +63,15 @@ private:
     std::unique_ptr<IDiskMonitor> _diskMonitor;
     std::unique_ptr<INetworkMonitor> _networkMonitor;
     std::unique_ptr<IGPUMonitor> _gpuMonitor;
+    std::unique_ptr<IServiceMonitor> m_serviceMonitor;
+    std::unique_ptr<IServiceControl> m_serviceControl;
+    //std::unique_ptr<IAutoStartMonitor> m_autoStartMonitor;
+    //std::unique_ptr<IAutoStartControl> m_autoStartControl;
     QTimer _updateTimer;
 
     QTabWidget* _tabWidget;
     QWidget* _overviewTab;
     QWidget* _processesTab;
-
-    // CPU chart
-    QChartView* _cpuChartView;
-    QChart* _cpuChart;
-    QLineSeries* _cpuSeries;
-    QValueAxis* _cpuAxisX;
-    QValueAxis* _cpuAxisY;
-
-    // Memory chart
-    QChartView* _memoryChartView;
-    QChart* _memoryChart;
-    QLineSeries* _memorySeries;
-    QValueAxis* _memoryAxisX;
-    QValueAxis* _memoryAxisY;
-
-    // System info
-    QLabel* _osLabel;
-    QLabel* _ramLabel;
 
     // Processes
     QLineEdit* _filterLineEdit;
@@ -132,40 +121,73 @@ private:
     QComboBox* _networkAdapterCombo;
 
     // Производительность GPU
-    QWidget* m_gpuPerformancePage; // страница GPU
-    QChartView* m_gpuChartView; // график GPU
-    QChart* m_gpuChart;
-    QHash<QString, QLineSeries*> m_gpuSeriesMap;
-    QValueAxis* m_gpuAxisX;
-    QValueAxis* m_gpuAxisY;
-    QWidget* m_gpuInfoWidget; // информация о GPU внизу
+    QWidget* _gpuPerformancePage; // страница GPU
+    QChartView* _gpuChartView; // график GPU
+    QChart* _gpuChart;
+    QHash<QString, QLineSeries*> _gpuSeriesMap;
+    QValueAxis* _gpuAxisX;
+    QValueAxis* _gpuAxisY;
+    QWidget* _gpuInfoWidget; // информация о GPU внизу
 
     // CPU
-    QWidget* m_cpuPerformancePage; // страница CPU
-    QChartView* m_cpuChartView; // график CPU
-    QChart* m_cpuChart;
-    QLineSeries* m_cpuSeries;
-    QValueAxis* m_cpuAxisX;
-    QValueAxis* m_cpuAxisY;
-    QWidget* m_cpuInfoWidget; // информация о CPU внизу
+    QWidget* _cpuPerformancePage; // страница CPU
+    QChartView* _cpuChartView; // график CPU
+    QChart* _cpuChart;
+    QLineSeries* _cpuSeries;
+    QValueAxis* _cpuAxisX;
+    QValueAxis* _cpuAxisY;
+    QWidget* _cpuInfoWidget; // информация о CPU внизу
 
     // ОЗУ
-    QWidget* m_memoryPerformancePage; // страница Памяти
-    QChartView* m_memoryChartView; // график Памяти
-    QChart* m_memoryChart;
-    QLineSeries* m_memorySeriesUsed;
-    QValueAxis* m_memoryAxisX;
-    QValueAxis* m_memoryAxisY;
-    QWidget* m_memoryInfoWidget;
+    QWidget* _memoryPerformancePage; // страница Памяти
+    QChartView* _memoryChartView; // график Памяти
+    QChart* _memoryChart;
+    QLineSeries* _memorySeriesUsed;
+    QValueAxis* _memoryAxisX;
+    QValueAxis* _memoryAxisY;
+    QWidget* _memoryInfoWidget;
+
+    // === Новая вкладка "Службы" ===
+    QWidget* m_servicesTab;
+    QTableView* m_servicesTableView;
+    ServiceTableModel* m_servicesModel;
+    QSortFilterProxyModel* _servicesProxyModel;
+
+    // Меню управления службой
+    QMenu* m_serviceContextMenu;
+    QAction* m_startServiceAction;
+    QAction* m_stopServiceAction;
+
+    // Выбранная служба
+    QString m_selectedServiceName;
+
+    //// === Новая вкладка "Автозагрузка" ===
+    //QWidget* m_autoStartTab;
+    //QTableView* m_autoStartTableView;
+    //AutoStartTableModel* m_autoStartModel;
+
+    //// Меню управления автозагрузкой
+    //QMenu* m_autoStartContextMenu;
+    //QAction* m_enableAutoStartAction;
+    //QAction* m_disableAutoStartAction;
+
+    //// Выбранная запись автозагрузки
+    //QString m_selectedAutoStartName;
+    //QString m_selectedAutoStartCommand;
+    //bool m_selectedAutoStartIsUser;
+
+
 
     void setUpProcessInfoContextMenu();
     void setUpProcessTree();
     void setUpPerformanceTab();
+    void setUpServicesTab();
     void showProcessDetailsDialog(quint32 pid);
-    void setUpNetworkPreformanceTab();
+    void setUpNetworkPerformanceTab();
     void setUpGPUPerformanceTab();
     void setUpCPUPerformanceTab();
     void setUpMemoryPerformanceTab();
+    //void setUpAutoStartTab();
     void updateNetworkAdapterList();
     void updatePerformanceTab(const SystemInfo& info);
     quint32 getPIDFromTreeIndex(const QModelIndex& index);

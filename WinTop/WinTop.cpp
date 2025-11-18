@@ -5,6 +5,8 @@
 #include "WindowsDiskMonitor.h"
 #include "WindowsNetworkMonitor.h"
 #include <WindowsGPUMonitor.h>
+#include <WindowsServiceMonitor.h>
+#include "WindowsServiceControl.h"
 
 WinTop::WinTop(QWidget *parent)
     : QMainWindow(parent)
@@ -15,6 +17,8 @@ WinTop::WinTop(QWidget *parent)
     _networkMonitor = std::make_unique<WindowsNetworkMonitor>();
     _gpuMonitor = std::make_unique<WindowsGPUMonitor>();
     _monitor = std::make_unique<WindowsSystemMonitor>(_diskMonitor.get(), _networkMonitor.get(), _gpuMonitor.get());
+    m_serviceMonitor = std::make_unique<WindowsServiceMonitor>();
+    m_serviceControl = std::make_unique<WindowsServiceControl>();
     connect(&_updateTimer, &QTimer::timeout, this, &WinTop::updateData);
     setupUI();
     _updateTimer.start(1000);
@@ -61,10 +65,13 @@ void WinTop::setupUI()
 
     setUpPerformanceTab();
 
+    setUpServicesTab();
+
     // === Add Tabs ===
     _tabWidget->addTab(_processesTab, "Процессы");
     _tabWidget->addTab(_treeTab, "Дерево процессов");
     _tabWidget->addTab(_performanceTab, "Производительность");
+    _tabWidget->addTab(m_servicesTab, "Службы");
 
     setCentralWidget(_tabWidget);
     setWindowTitle("WinTop");
@@ -72,13 +79,29 @@ void WinTop::setupUI()
 
 QList<ProcessInfo> WinTop::updateData() 
 {
+    QWidget* currentWidget = _tabWidget->currentWidget();
+
     SystemInfo info = _monitor->getSystemInfo();
     // Обновляем таблицу
-    auto processes = _monitor->getProcesses();
-    _processModel->updateData(processes);
-
-    // Обновляем дерево
-    _processTreeModel->updateData(processes);
+    QList<ProcessInfo> processes;
+    if (currentWidget == _processesTab || currentWidget == _treeTab) 
+    {
+        processes = _monitor->getProcesses();
+        if (currentWidget == _processesTab)
+        {
+            _processModel->updateData(processes);
+        }
+        else if (currentWidget == _treeTab)
+        {
+            // Обновляем дерево
+            _processTreeModel->updateData(processes);
+        }
+    }
+    else if (currentWidget == m_servicesTab) 
+    {
+        auto services = m_serviceMonitor->getServices();
+        m_servicesModel->updateData(services);
+    }
 
     /*// Обновляем метки
     _osLabel->setText("Windows 10");
@@ -173,7 +196,7 @@ void WinTop::setUpProcessTree()
 
     _processTreeView = new QTreeView();
     _processTreeModel = new ProcessTreeModel(this);
-    _processTreeModel->setTreeBuilder(std::move(_treeBuilder)); // передаём билдер
+    _processTreeModel->setTreeBuilder(std::move(_treeBuilder));
     _processTreeModel->setProcessControl(_processControl.get());
     _treeProxyModel = new QSortFilterProxyModel(this);
     _treeProxyModel->setSourceModel(_processTreeModel);
@@ -268,13 +291,12 @@ void WinTop::setUpPerformanceTab()
 
     _performanceStack->addWidget(_diskPerformancePage);
 
-    setUpNetworkPreformanceTab();
+    setUpNetworkPerformanceTab();
     
     setUpGPUPerformanceTab();
 
     perfLayout->addWidget(_performanceStack);
 
-    // Подключаем выбор элемента в дереве
     connect(_performanceTree, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* current, QTreeWidgetItem* previous) {
         Q_UNUSED(previous);
         if (current) {
@@ -282,16 +304,71 @@ void WinTop::setUpPerformanceTab()
             if (resource == "disk") {
                 _performanceStack->setCurrentWidget(_diskPerformancePage);
             }
-            // ... другие ресурсы
         }
-        });
+    });
 
-    // Устанавливаем первый элемент как текущий
     _performanceTree->setCurrentItem(_performanceTree->topLevelItem(0));
 
 }
 
-void WinTop::setUpNetworkPreformanceTab()
+void WinTop::setUpServicesTab()
+{
+    m_servicesTab = new QWidget();
+    auto* servicesLayout = new QVBoxLayout(m_servicesTab);
+
+    m_servicesTableView = new QTableView();
+    m_servicesModel = new ServiceTableModel(this);
+    
+    _servicesProxyModel = new QSortFilterProxyModel(this);
+    _servicesProxyModel->setSourceModel(m_servicesModel);
+    _servicesProxyModel->setSortRole(Qt::UserRole);
+
+    m_servicesTableView->setModel(_servicesProxyModel);
+
+    // Настройка таблицы
+    m_servicesTableView->setAlternatingRowColors(true);
+    m_servicesTableView->setSortingEnabled(true);
+
+    // === Контекстное меню для служб ===
+    m_serviceContextMenu = new QMenu(this);
+    m_startServiceAction = new QAction("Запустить службу", this);
+    m_stopServiceAction = new QAction("Остановить службу", this);
+
+    m_serviceContextMenu->addAction(m_startServiceAction);
+    m_serviceContextMenu->addAction(m_stopServiceAction);
+
+    m_servicesTableView->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_servicesTableView, &QTableView::customContextMenuRequested,
+        this, &WinTop::onServiceContextMenu);
+
+    connect(m_startServiceAction, &QAction::triggered, this, [this]() {
+        if (!m_selectedServiceName.isEmpty()) {
+            if (m_serviceControl.get()->startService(m_selectedServiceName)) {
+                QMessageBox::information(this, "Успешно", "Служба запущена.");
+                updateData();
+            }
+            else {
+                QMessageBox::critical(this, "Ошибка", "Не удалось запустить службу.");
+            }
+        }
+        });
+
+    connect(m_stopServiceAction, &QAction::triggered, this, [this]() {
+        if (!m_selectedServiceName.isEmpty()) {
+            if (m_serviceControl.get()->stopService(m_selectedServiceName)) {
+                QMessageBox::information(this, "Успешно", "Служба остановлена.");
+                updateData(); // обновляем таблицу
+            }
+            else {
+                QMessageBox::critical(this, "Ошибка", "Не удалось остановить службу.");
+            }
+        }
+        });
+
+    servicesLayout->addWidget(m_servicesTableView);
+}
+
+void WinTop::setUpNetworkPerformanceTab()
 {
     // === Страница сети ===
     _networkPerformancePage = new QWidget();
@@ -354,15 +431,15 @@ void WinTop::setUpNetworkPreformanceTab()
             } 
             else if (resource == "gpu")
             {
-                _performanceStack->setCurrentWidget(m_gpuPerformancePage);
+                _performanceStack->setCurrentWidget(_gpuPerformancePage);
             }
             else if (resource == "cpu")
             {
-                _performanceStack->setCurrentWidget(m_cpuPerformancePage);
+                _performanceStack->setCurrentWidget(_cpuPerformancePage);
             }
             else if (resource == "memory")
             {
-                _performanceStack->setCurrentWidget(m_memoryPerformancePage);
+                _performanceStack->setCurrentWidget(_memoryPerformancePage);
             }
             // ... другие ресурсы
         }
@@ -377,107 +454,107 @@ void WinTop::setUpNetworkPreformanceTab()
 
 void WinTop::setUpGPUPerformanceTab()
 {
-    m_gpuPerformancePage = new QWidget();
-    auto* gpuPerfLayout = new QVBoxLayout(m_gpuPerformancePage);
+    _gpuPerformancePage = new QWidget();
+    auto* gpuPerfLayout = new QVBoxLayout(_gpuPerformancePage);
 
     // График
-    m_gpuChart = new QChart();
-    m_gpuChart->legend()->show();
+    _gpuChart = new QChart();
+    _gpuChart->legend()->show();
 
-    m_gpuAxisX = new QValueAxis;
-    m_gpuAxisY = new QValueAxis;
-    m_gpuAxisX->setRange(0, 100);
-    m_gpuAxisY->setRange(0, 100);
-    m_gpuChart->addAxis(m_gpuAxisX, Qt::AlignBottom);
-    m_gpuChart->addAxis(m_gpuAxisY, Qt::AlignLeft);
+    _gpuAxisX = new QValueAxis;
+    _gpuAxisY = new QValueAxis;
+    _gpuAxisX->setRange(0, 100);
+    _gpuAxisY->setRange(0, 100);
+    _gpuChart->addAxis(_gpuAxisX, Qt::AlignBottom);
+    _gpuChart->addAxis(_gpuAxisY, Qt::AlignLeft);
 
-    m_gpuChartView = new QChartView(m_gpuChart);
-    m_gpuChartView->setRenderHint(QPainter::Antialiasing);
+    _gpuChartView = new QChartView(_gpuChart);
+    _gpuChartView->setRenderHint(QPainter::Antialiasing);
 
-    gpuPerfLayout->addWidget(m_gpuChartView);
+    gpuPerfLayout->addWidget(_gpuChartView);
 
     // Информация о GPU (внизу)
-    m_gpuInfoWidget = new QWidget();
-    auto* gpuInfoLayout = new QVBoxLayout(m_gpuInfoWidget);
+    _gpuInfoWidget = new QWidget();
+    auto* gpuInfoLayout = new QVBoxLayout(_gpuInfoWidget);
     auto gpuInfoLabel = new QLabel("Информация о сети появится здесь...");
     gpuInfoLabel->setObjectName("gpuInfoLabel");
     gpuInfoLayout->addWidget(gpuInfoLabel);
-    gpuPerfLayout->addWidget(m_gpuInfoWidget);
-    _performanceStack->addWidget(m_gpuPerformancePage);
+    gpuPerfLayout->addWidget(_gpuInfoWidget);
+    _performanceStack->addWidget(_gpuPerformancePage);
 }
 
 void WinTop::setUpCPUPerformanceTab()
 {
-    m_cpuPerformancePage = new QWidget();
-    auto* cpuPerfLayout = new QVBoxLayout(m_cpuPerformancePage);
+    _cpuPerformancePage = new QWidget();
+    auto* cpuPerfLayout = new QVBoxLayout(_cpuPerformancePage);
 
     // График
-    m_cpuChart = new QChart();
-    m_cpuSeries = new QLineSeries();
-    m_cpuSeries->setName("Загрузка ЦП %");
-    m_cpuChart->addSeries(m_cpuSeries);
-    m_cpuChart->legend()->show();
+    _cpuChart = new QChart();
+    _cpuSeries = new QLineSeries();
+    _cpuSeries->setName("Загрузка ЦП %");
+    _cpuChart->addSeries(_cpuSeries);
+    _cpuChart->legend()->show();
 
-    m_cpuAxisX = new QValueAxis;
-    m_cpuAxisY = new QValueAxis;
-    m_cpuAxisX->setRange(0, 100);
-    m_cpuAxisY->setRange(0, 100);
-    m_cpuChart->addAxis(m_cpuAxisX, Qt::AlignBottom);
-    m_cpuChart->addAxis(m_cpuAxisY, Qt::AlignLeft);
-    m_cpuSeries->attachAxis(m_cpuAxisX);
-    m_cpuSeries->attachAxis(m_cpuAxisY);
+    _cpuAxisX = new QValueAxis;
+    _cpuAxisY = new QValueAxis;
+    _cpuAxisX->setRange(0, 100);
+    _cpuAxisY->setRange(0, 100);
+    _cpuChart->addAxis(_cpuAxisX, Qt::AlignBottom);
+    _cpuChart->addAxis(_cpuAxisY, Qt::AlignLeft);
+    _cpuSeries->attachAxis(_cpuAxisX);
+    _cpuSeries->attachAxis(_cpuAxisY);
 
-    m_cpuChartView = new QChartView(m_cpuChart);
-    m_cpuChartView->setRenderHint(QPainter::Antialiasing);
+    _cpuChartView = new QChartView(_cpuChart);
+    _cpuChartView->setRenderHint(QPainter::Antialiasing);
 
-    cpuPerfLayout->addWidget(m_cpuChartView);
+    cpuPerfLayout->addWidget(_cpuChartView);
 
     // Информация о CPU (внизу)
-    m_cpuInfoWidget = new QWidget();
-    auto* cpuInfoLayout = new QVBoxLayout(m_cpuInfoWidget);
+    _cpuInfoWidget = new QWidget();
+    auto* cpuInfoLayout = new QVBoxLayout(_cpuInfoWidget);
     auto cpuInfoLabel = new QLabel("Информация о CPU появится здесь...");
     cpuInfoLabel->setObjectName("cpuInfoLabel");
     cpuInfoLayout->addWidget(cpuInfoLabel);
-    cpuPerfLayout->addWidget(m_cpuInfoWidget);
+    cpuPerfLayout->addWidget(_cpuInfoWidget);
 
-    _performanceStack->addWidget(m_cpuPerformancePage);
+    _performanceStack->addWidget(_cpuPerformancePage);
 }
 
 void WinTop::setUpMemoryPerformanceTab()
 {
-    m_memoryPerformancePage = new QWidget();
-    auto* memoryPerfLayout = new QVBoxLayout(m_memoryPerformancePage);
+    _memoryPerformancePage = new QWidget();
+    auto* memoryPerfLayout = new QVBoxLayout(_memoryPerformancePage);
 
     // График
-    m_memoryChart = new QChart();
-    m_memorySeriesUsed = new QLineSeries();
-    m_memorySeriesUsed->setName("Использовано");
-    m_memoryChart->addSeries(m_memorySeriesUsed);
-    m_memoryChart->legend()->show();
+    _memoryChart = new QChart();
+    _memorySeriesUsed = new QLineSeries();
+    _memorySeriesUsed->setName("Использовано");
+    _memoryChart->addSeries(_memorySeriesUsed);
+    _memoryChart->legend()->show();
 
-    m_memoryAxisX = new QValueAxis;
-    m_memoryAxisY = new QValueAxis;
-    m_memoryAxisX->setRange(0, 100);
-    m_memoryAxisY->setRange(0, 100);
-    m_memoryChart->addAxis(m_memoryAxisX, Qt::AlignBottom);
-    m_memoryChart->addAxis(m_memoryAxisY, Qt::AlignLeft);
-    m_memorySeriesUsed->attachAxis(m_memoryAxisX);
-    m_memorySeriesUsed->attachAxis(m_memoryAxisY);
+    _memoryAxisX = new QValueAxis;
+    _memoryAxisY = new QValueAxis;
+    _memoryAxisX->setRange(0, 100);
+    _memoryAxisY->setRange(0, 100);
+    _memoryChart->addAxis(_memoryAxisX, Qt::AlignBottom);
+    _memoryChart->addAxis(_memoryAxisY, Qt::AlignLeft);
+    _memorySeriesUsed->attachAxis(_memoryAxisX);
+    _memorySeriesUsed->attachAxis(_memoryAxisY);
 
-    m_memoryChartView = new QChartView(m_memoryChart);
-    m_memoryChartView->setRenderHint(QPainter::Antialiasing);
+    _memoryChartView = new QChartView(_memoryChart);
+    _memoryChartView->setRenderHint(QPainter::Antialiasing);
 
-    memoryPerfLayout->addWidget(m_memoryChartView);
+    memoryPerfLayout->addWidget(_memoryChartView);
 
     // Информация о Памяти (внизу)
-    m_memoryInfoWidget = new QWidget();
-    auto* memoryInfoLayout = new QVBoxLayout(m_memoryInfoWidget);
+    _memoryInfoWidget = new QWidget();
+    auto* memoryInfoLayout = new QVBoxLayout(_memoryInfoWidget);
     auto memoryInfoLabel = new QLabel("Информация о RAM появится здесь...");
     memoryInfoLabel->setObjectName("memoryInfoLabel");
     memoryInfoLayout->addWidget(memoryInfoLabel);
-    memoryPerfLayout->addWidget(m_memoryInfoWidget);
+    memoryPerfLayout->addWidget(_memoryInfoWidget);
 
-    _performanceStack->addWidget(m_memoryPerformancePage);
+    _performanceStack->addWidget(_memoryPerformancePage);
 }
 
 void WinTop::updateNetworkAdapterList() {
@@ -500,8 +577,7 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     // Обновляем график диска
     static int diskX = 0;
     double totalRead = diskInfo.readBytesPerSec, totalWrite = diskInfo.writeBytesPerSec;
-
-    _diskSeriesRead->append(diskX, totalRead / 1024 / 1024); // в МБ/с
+        _diskSeriesRead->append(diskX, totalRead / 1024 / 1024); // в МБ/с
     _diskSeriesWrite->append(diskX, totalWrite / 1024 / 1024);
     diskX++;
     if (_diskSeriesRead->count() > 100) {
@@ -585,16 +661,16 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     for (const auto& gpu : gpuInfo) {
         QString gpuName = gpu.name;
 
-        if (!m_gpuSeriesMap.contains(gpuName)) {
+        if (!_gpuSeriesMap.contains(gpuName)) {
             // Создаём новый график
             auto* series = new QLineSeries();
             series->setName(gpuName); // подпись в легенде
-            m_gpuChart->addSeries(series);
-            series->attachAxis(m_gpuAxisX);
-            series->attachAxis(m_gpuAxisY);
-            m_gpuSeriesMap[gpuName] = series;
+            _gpuChart->addSeries(series);
+            series->attachAxis(_gpuAxisX);
+            series->attachAxis(_gpuAxisY);
+            _gpuSeriesMap[gpuName] = series;
         }
-        auto* series = m_gpuSeriesMap[gpuName];
+        auto* series = _gpuSeriesMap[gpuName];
         series->append(gpuX, gpu.usage);
     }
     gpuX++;
@@ -604,11 +680,11 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     for (const auto& gpu : gpuInfo) {
         currentNames.append(gpu.name);
     }
-    for (auto it = m_gpuSeriesMap.begin(); it != m_gpuSeriesMap.end();) {
+    for (auto it = _gpuSeriesMap.begin(); it != _gpuSeriesMap.end();) {
         if (!currentNames.contains(it.key())) {
-            m_gpuChart->removeSeries(it.value());
+            _gpuChart->removeSeries(it.value());
             delete it.value();
-            it = m_gpuSeriesMap.erase(it);
+            it = _gpuSeriesMap.erase(it);
         }
         else {
             ++it;
@@ -617,12 +693,12 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
 
     gpuX++;
     // Удаляем старые точки, если нужно
-    for (auto* series : m_gpuSeriesMap) {
+    for (auto* series : _gpuSeriesMap) {
         if (series->count() > 100) {
             series->removePoints(0, 1);
         }
     }
-    m_gpuAxisX->setRange(gpuX - 100, gpuX);
+    _gpuAxisX->setRange(gpuX - 100, gpuX);
 
     // === Обновляем информацию о GPU ===
     QString gpuInfoText = "Видеокарты:\n";
@@ -638,19 +714,19 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     }
 
     // Найдём QLabel и обновим текст
-    auto* gpuInfoLabel = m_gpuInfoWidget->findChild<QLabel*>("gpuInfoLabel");
+    auto* gpuInfoLabel = _gpuInfoWidget->findChild<QLabel*>("gpuInfoLabel");
     if (gpuInfoLabel) {
         gpuInfoLabel->setText(gpuInfoText);
     }
     
     // Обновляем график CPU
     static int cpuX = 0;
-    m_cpuSeries->append(cpuX, info.cpuUsage);
+    _cpuSeries->append(cpuX, info.cpuUsage);
     cpuX++;
-    if (m_cpuSeries->count() > 100) {
-        m_cpuSeries->removePoints(0, 1);
+    if (_cpuSeries->count() > 100) {
+        _cpuSeries->removePoints(0, 1);
     }
-    m_cpuAxisX->setRange(cpuX - 100, cpuX);
+    _cpuAxisX->setRange(cpuX - 100, cpuX);
 
     // === Обновляем информацию о CPU ===
     QString cpuInfoText = QString(
@@ -680,7 +756,7 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     }
 
     // Найдём QLabel и обновим текст
-    auto* cpuInfoLabel = m_cpuInfoWidget->findChild<QLabel*>("cpuInfoLabel");
+    auto* cpuInfoLabel = _cpuInfoWidget->findChild<QLabel*>("cpuInfoLabel");
     if (cpuInfoLabel) {
         cpuInfoLabel->setText(cpuInfoText);
     }
@@ -688,12 +764,12 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     // === Обновляем данные Памяти ===
     // Обновляем график Памяти
     static int memoryX = 0;
-    m_memorySeriesUsed->append(memoryX, (double)info.usedMemory / (double)info.totalMemory * 100.0);
+    _memorySeriesUsed->append(memoryX, (double)info.usedMemory / (double)info.totalMemory * 100.0);
     memoryX++;
-    if (m_memorySeriesUsed->count() > 100) {
-        m_memorySeriesUsed->removePoints(0, 1);
+    if (_memorySeriesUsed->count() > 100) {
+        _memorySeriesUsed->removePoints(0, 1);
     }
-    m_memoryAxisX->setRange(memoryX - 100, memoryX);
+    _memoryAxisX->setRange(memoryX - 100, memoryX);
 
     // === Обновляем информацию о Памяти ===
     QString memoryInfoText = QString(
@@ -703,7 +779,7 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
         .arg((double)info.usedMemory / (double)info.totalMemory * 100.0, 0, 'f', 2);
 
     // Найдём QLabel и обновим текст
-    auto* memoryInfoLabel = m_memoryInfoWidget->findChild<QLabel*>("memoryInfoLabel");
+    auto* memoryInfoLabel = _memoryInfoWidget->findChild<QLabel*>("memoryInfoLabel");
     if (memoryInfoLabel) {
         memoryInfoLabel->setText(memoryInfoText);
     }
@@ -755,4 +831,21 @@ void WinTop::showProcessDetailsDialog(quint32 pid) {
     ProcessDetailsDialog dialog(this);
     dialog.setProcessDetails(details);
     dialog.exec();
+}
+
+void WinTop::onServiceContextMenu(const QPoint& pos) {
+    QModelIndex proxyIndex = m_servicesTableView->indexAt(pos);
+    if (!proxyIndex.isValid()) {
+        return;
+    }
+    QModelIndex sourceIndex = _servicesProxyModel->mapToSource(proxyIndex);
+    // Получаем имя службы из модели
+    m_selectedServiceName = m_servicesModel->data(sourceIndex.siblingAtColumn(0), Qt::DisplayRole).toString(); // колонка "Имя"
+
+    if (m_selectedServiceName.isEmpty()) {
+        return;
+    }
+
+    // Показываем меню
+    m_serviceContextMenu->exec(m_servicesTableView->viewport()->mapToGlobal(pos));
 }

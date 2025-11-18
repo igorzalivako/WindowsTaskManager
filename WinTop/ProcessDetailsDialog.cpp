@@ -1,11 +1,5 @@
 ﻿#include "ProcessDetailsDialog.h"
 
-#include <QVBoxLayout>
-#include <QFormLayout>
-#include <QLabel>
-#include <QTextEdit>
-#include <QDialogButtonBox>
-#include <QScrollArea>
 #include <QDateTime>
 #include <QString>
 
