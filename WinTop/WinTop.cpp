@@ -11,17 +11,20 @@
 WinTop::WinTop(QWidget *parent)
     : QMainWindow(parent)
 {
+    m_serviceControl = std::make_unique<WindowsServiceControl>();
     _processControl = std::make_unique<WindowsProcessControl>();
     _treeBuilder = std::make_unique<WindowsProcessTreeBuilder>();
-    _diskMonitor = std::make_unique<WindowsDiskMonitor>();
-    _networkMonitor = std::make_unique<WindowsNetworkMonitor>();
-    _gpuMonitor = std::make_unique<WindowsGPUMonitor>();
-    _monitor = std::make_unique<WindowsSystemMonitor>(_diskMonitor.get(), _networkMonitor.get(), _gpuMonitor.get());
-    m_serviceMonitor = std::make_unique<WindowsServiceMonitor>();
-    m_serviceControl = std::make_unique<WindowsServiceControl>();
-    connect(&_updateTimer, &QTimer::timeout, this, &WinTop::updateData);
+    // Создаём поток
+    m_dataThread = new QThread();
+    m_dataUpdater = new DataUpdater(1000);
+    m_dataUpdater->moveToThread(m_dataThread);
+    connect(m_dataThread, &QThread::started, m_dataUpdater, &DataUpdater::update);
+    connect(m_dataUpdater, &DataUpdater::dataReady, this, &WinTop::onDataReady);
+
     setupUI();
-    _updateTimer.start(1000);
+
+    m_dataThread->start();
+    m_dataUpdater->start();
 }
 
 WinTop::~WinTop()
@@ -76,43 +79,6 @@ void WinTop::setupUI()
 
     setCentralWidget(_tabWidget);
     setWindowTitle("WinTop");
-}
-
-QList<ProcessInfo> WinTop::updateData() 
-{
-    QWidget* currentWidget = _tabWidget->currentWidget();
-
-    SystemInfo info = _monitor->getSystemInfo();
-    // Обновляем таблицу
-    QList<ProcessInfo> processes;
-    if (currentWidget == _processesTab || currentWidget == _treeTab) 
-    {
-        processes = _monitor->getProcesses();
-        if (currentWidget == _processesTab)
-        {
-            _processModel->updateData(processes);
-        }
-        else if (currentWidget == _treeTab)
-        {
-            // Обновляем дерево
-            _processTreeModel->updateData(processes);
-        }
-    }
-    else if (currentWidget == m_servicesTab) 
-    {
-        auto services = m_serviceMonitor->getServices();
-        m_servicesModel->updateData(services);
-    }
-    updatePerformanceTab(info);
-
-    /*// Обновляем метки
-    _osLabel->setText("Windows 10");
-    _ramLabel->setText(QString("%1 / %2 GB").arg(info.usedMemory / 1024 / 1024 / 1024.0, 0, 'f', 1)
-        .arg(info.totalMemory / 1024 / 1024 / 1024.0, 0, 'f', 1));*/
-
-    
-
-    return processes;
 }
 
 void WinTop::onProcessContextMenu(const QPoint& pos)
@@ -207,6 +173,7 @@ void WinTop::setUpProcessTree()
     _processTreeView->setAlternatingRowColors(true);
     _processTreeView->setSortingEnabled(true);
     _processTreeView->setContextMenuPolicy(Qt::CustomContextMenu);
+    _processTreeView->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
 
     treeLayout->addWidget(_processTreeView);
 }
@@ -331,6 +298,7 @@ void WinTop::setUpServicesTab()
     // Настройка таблицы
     m_servicesTableView->setAlternatingRowColors(true);
     m_servicesTableView->setSortingEnabled(true);
+    m_servicesTableView->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeMode::Stretch);
 
     // === Контекстное меню для служб ===
     m_serviceContextMenu = new QMenu(this);
@@ -348,7 +316,6 @@ void WinTop::setUpServicesTab()
         if (!m_selectedServiceName.isEmpty()) {
             if (m_serviceControl.get()->startService(m_selectedServiceName)) {
                 QMessageBox::information(this, "Успешно", "Служба запущена.");
-                updateData();
             }
             else {
                 QMessageBox::critical(this, "Ошибка", "Не удалось запустить службу.");
@@ -360,7 +327,6 @@ void WinTop::setUpServicesTab()
         if (!m_selectedServiceName.isEmpty()) {
             if (m_serviceControl.get()->stopService(m_selectedServiceName)) {
                 QMessageBox::information(this, "Успешно", "Служба остановлена.");
-                updateData(); // обновляем таблицу
             }
             else {
                 QMessageBox::critical(this, "Ошибка", "Не удалось остановить службу.");
@@ -421,8 +387,6 @@ void WinTop::setUpNetworkPerformanceTab()
 
     _performanceStack->addWidget(_networkPerformancePage);
 
-    // ... (добавляем остальные страницы)
-
     // Подключаем выбор элемента в дереве
     connect(_performanceTree, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* current, QTreeWidgetItem* previous) {
         Q_UNUSED(previous);
@@ -434,7 +398,7 @@ void WinTop::setUpNetworkPerformanceTab()
             else if (resource == "network") 
             {
                 _performanceStack->setCurrentWidget(_networkPerformancePage);
-                updateNetworkAdapterList();
+                updateNetworkAdapterList(_lastNetworkInterfaces);
             } 
             else if (resource == "gpu")
             {
@@ -448,7 +412,6 @@ void WinTop::setUpNetworkPerformanceTab()
             {
                 _performanceStack->setCurrentWidget(_memoryPerformancePage);
             }
-            // ... другие ресурсы
         }
     });
 
@@ -576,8 +539,7 @@ void WinTop::setUpMemoryPerformanceTab()
     _performanceStack->addWidget(_memoryPerformancePage);
 }
 
-void WinTop::updateNetworkAdapterList() {
-    auto networkInfo = _networkMonitor->getNetworkInfo();
+void WinTop::updateNetworkAdapterList(const QList<NetworkInterfaceInfo>& networkInfo) {
 
     _networkAdapterCombo->clear();
 
@@ -587,7 +549,7 @@ void WinTop::updateNetworkAdapterList() {
     }
 }
 
-void WinTop::updatePerformanceTab(const SystemInfo& info)
+void WinTop::updatePerformanceTab(const SystemInfo& info, const DisksInfo& disksInfo, const QList<NetworkInterfaceInfo>& networkInfo, const QList<GPUInfo>& gpuInfo)
 {
     // === Сохраняем состояния ===
     QStringList diskExpanded = getExpandedItems(_diskInfoTree);
@@ -597,12 +559,10 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     QStringList memoryExpanded = getExpandedItems(_memoryInfoTree);
 
     // === Обновляем данные диска ===
-    auto diskInfo = _diskMonitor->getDiskInfo();
-    auto processDiskInfo = _diskMonitor->getProcessDiskInfo();
-
+    
     // Обновляем график диска
     static int diskX = 0;
-    double totalRead = diskInfo.readBytesPerSec, totalWrite = diskInfo.writeBytesPerSec;
+    double totalRead = disksInfo.readBytesPerSec, totalWrite = disksInfo.writeBytesPerSec;
     _diskSeriesRead->append(diskX, totalRead / 1024 / 1024); // в МБ/с
     _diskSeriesWrite->append(diskX, totalWrite / 1024 / 1024);
     diskX++;
@@ -616,7 +576,7 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     _diskInfoTree->clear();
     auto* diskGroup = new QTreeWidgetItem(_diskInfoTree);
     diskGroup->setText(0, "Диски");
-    for (const auto& disk : diskInfo.disks) {
+    for (const auto& disk : disksInfo.disks) {
         auto* item = new QTreeWidgetItem(diskGroup);
         diskGroup->setExpanded(true); 
         item->setText(0, QString("%1: %2 ГБ / %3 ГБ")
@@ -628,15 +588,14 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     // Добавляем общую статистику
     auto* totalReadItem = new QTreeWidgetItem(diskGroup);
     totalReadItem->setText(0, QString("Всего прочитано: %1 МБ/с")
-        .arg(diskInfo.readBytesPerSec / 1024 / 1024, 0, 'f', 2));
+        .arg(disksInfo.readBytesPerSec / 1024 / 1024, 0, 'f', 2));
 
     auto* totalWriteItem = new QTreeWidgetItem(diskGroup);
     totalWriteItem->setText(0, QString("Всего записано: %1 МБ/с")
-        .arg(diskInfo.writeBytesPerSec / 1024 / 1024, 0, 'f', 2));
+        .arg(disksInfo.writeBytesPerSec / 1024 / 1024, 0, 'f', 2));
 
     // === Обновляем данные сети ===
-    auto networkInfo = _networkMonitor->getNetworkInfo();
-
+   
     // Обновляем график сети
     static int networkX = 0;
     double selectedRecv = 0, selectedSent = 0;
@@ -674,18 +633,16 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
             adapterGroup->setText(0, net.description);
 
             auto* recvItem = new QTreeWidgetItem(adapterGroup);
-            recvItem->setText(0, QString("Приём: %1 МБ/с")
-                .arg(net.receiveBytesPerSec / 1024 / 1024, 0, 'f', 2));
+            recvItem->setText(0, QString("Приём: %1 МБит/с")
+                .arg(net.receiveBytesPerSec / 1024 / 128, 0, 'f', 2));
 
             auto* sentItem = new QTreeWidgetItem(adapterGroup);
-            sentItem->setText(0, QString("Отправка: %1 МБ/с")
-                .arg(net.sendBytesPerSec / 1024 / 1024, 0, 'f', 2));
+            sentItem->setText(0, QString("Отправка: %1 МБит/с")
+                .arg(net.sendBytesPerSec / 1024 / 128, 0, 'f', 2));
         }
     }
 
     // === Обновляем данные GPU ===
-    auto gpuInfo = _gpuMonitor->getGPUInfo();
-    auto i = _gpuMonitor->getProcessGPUInfo();
     // Обновляем график GPU
     static int gpuX = 0;
     double maxLoad = 0;
@@ -797,10 +754,10 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     cacheL1Item->setText(0, QString("L1: %1 КБ").arg(info.cacheL1KB));
 
     auto* cacheL2Item = new QTreeWidgetItem(cacheGroup);
-    cacheL2Item->setText(0, QString("L2: %1 КБ").arg(info.cacheL2KB));
+    cacheL2Item->setText(0, QString("L2: %1 МБ").arg(info.cacheL2KB / 1024));
 
     auto* cacheL3Item = new QTreeWidgetItem(cacheGroup);
-    cacheL3Item->setText(0, QString("L3: %1 КБ").arg(info.cacheL3KB));
+    cacheL3Item->setText(0, QString("L3: %1 МБ").arg(info.cacheL3KB / 1024));
 
     // Загрузка ядер
     auto* coresGroup = new QTreeWidgetItem(cpuGroup);
@@ -875,7 +832,7 @@ void WinTop::showProcessDetails()
 }
 
 void WinTop::showProcessDetailsDialog(quint32 pid) {
-    QList<ProcessInfo> processes = updateData();
+    QList<ProcessInfo> processes = _lastProcesses;
     
     ProcessDetails details = _processControl.get()->getProcessDetails(pid, processes);
 
@@ -900,6 +857,30 @@ void WinTop::onServiceContextMenu(const QPoint& pos) {
 
     // Показываем меню
     m_serviceContextMenu->exec(m_servicesTableView->viewport()->mapToGlobal(pos));
+}
+
+void WinTop::onDataReady(const UpdateData& data)
+{
+    QWidget* currentWidget = _tabWidget->currentWidget();
+    _lastProcesses = data.processes;
+    _lastServices = data.services;
+    _lastNetworkInterfaces = data.networkInterfaces;
+    // Обновляем UI (только UI!)
+    // Обновляем таблицу
+    if (_processModel && (currentWidget == _processesTab)) {
+        _processModel->updateData(data.processes);
+    }
+
+    if (_processTreeModel && (currentWidget == _treeTab)) {
+        _processTreeModel->updateData(data.processes);
+    }
+
+    if (m_servicesModel && (currentWidget == m_servicesTab)) {
+        m_servicesModel->updateData(data.services);
+    }
+
+    // Обновляем вкладку производительности
+    updatePerformanceTab(data.systemInfo, data.disks, data.networkInterfaces, data.gpus);
 }
 
 QStringList WinTop::getExpandedItems(QTreeWidget* tree) {

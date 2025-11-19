@@ -114,6 +114,7 @@
     <QtRcc Include="WinTop.qrc" />
     <QtUic Include="WinTop.ui" />
     <QtMoc Include="WinTop.h" />
+    <ClCompile Include="DataUpdater.cpp" />
     <ClCompile Include="ProcessDetailsDialog.cpp" />
     <ClCompile Include="ProcessTableModel.cpp" />
     <ClCompile Include="ProcessTree.cpp" />
@@ -134,6 +135,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DataStructs.h" />
+    <QtMoc Include="DataUpdater.h" />
     <ClInclude Include="IDiskMonitor.h" />
     <ClInclude Include="IGPUMonitor.h" />
     <ClInclude Include="IMonitor.h" />

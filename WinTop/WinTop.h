@@ -17,6 +17,7 @@
 #include <QComboBox>
 #include <QHash>
 #include <QHeaderView>
+#include <QThread>
 
 #include <QtCharts/QChartView>
 #include <QtCharts/QLineSeries>
@@ -38,6 +39,7 @@
 #include <IGPUMonitor.h>
 #include "ServiceTableModel.h"
 #include "IServiceControl.h"
+#include <DataUpdater.h>
 
 class WinTop : public QMainWindow
 {
@@ -48,27 +50,26 @@ public:
     ~WinTop();
 
 private slots:
-    QList<ProcessInfo> updateData();
     void onProcessContextMenu(const QPoint& pos);
     void onFilterLineEditTextChanged(const QString &text);
     void onTreeContextMenu(const QPoint& pos);
     void killSelectedProcesses();
     void showProcessDetails();
     void onServiceContextMenu(const QPoint& pos);
+    void onDataReady(const UpdateData& data);
 
 private:
     void setupUI();
-    std::unique_ptr<IMonitor> _monitor;
+
+    std::unique_ptr<IServiceControl> m_serviceControl;
     std::unique_ptr<IProcessControl> _processControl;
     std::unique_ptr<IProcessTreeBuilder> _treeBuilder;
-    std::unique_ptr<IDiskMonitor> _diskMonitor;
-    std::unique_ptr<INetworkMonitor> _networkMonitor;
-    std::unique_ptr<IGPUMonitor> _gpuMonitor;
-    std::unique_ptr<IServiceMonitor> m_serviceMonitor;
-    std::unique_ptr<IServiceControl> m_serviceControl;
     //std::unique_ptr<IAutoStartMonitor> m_autoStartMonitor;
     //std::unique_ptr<IAutoStartControl> m_autoStartControl;
-    QTimer _updateTimer;
+    //QTimer _updateTimer;
+    QList<ProcessInfo> _lastProcesses;
+    QList<NetworkInterfaceInfo> _lastNetworkInterfaces;
+    QList<ServiceInfo> _lastServices;
 
     QTabWidget* _tabWidget;
     QWidget* _overviewTab;
@@ -177,8 +178,6 @@ private:
     //QString m_selectedAutoStartCommand;
     //bool m_selectedAutoStartIsUser;
 
-
-
     void setUpProcessInfoContextMenu();
     void setUpProcessTree();
     void setUpPerformanceTab();
@@ -189,8 +188,8 @@ private:
     void setUpCPUPerformanceTab();
     void setUpMemoryPerformanceTab();
     //void setUpAutoStartTab();
-    void updateNetworkAdapterList();
-    void updatePerformanceTab(const SystemInfo& info);
+    void updateNetworkAdapterList(const QList<NetworkInterfaceInfo> & networkInfo);
+    void updatePerformanceTab(const SystemInfo& systemInfo, const DisksInfo& diskInfo, const QList<NetworkInterfaceInfo> & networkInfo, const QList<GPUInfo> & gpuInfo);
     quint32 getPIDFromTreeIndex(const QModelIndex& index);
 
     // === Новые поля для информации под графиками ===
@@ -219,4 +218,7 @@ private:
     void setExpandedItems(QTreeWidget* tree, const QStringList& items);
 
     void setupStyles();
+
+    QThread* m_dataThread;
+    DataUpdater* m_dataUpdater;
 };
