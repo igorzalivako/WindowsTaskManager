@@ -16,6 +16,7 @@
 #include <QTreeView>
 #include <QComboBox>
 #include <QHash>
+#include <QHeaderView>
 
 #include <QtCharts/QChartView>
 #include <QtCharts/QLineSeries>
@@ -191,4 +192,31 @@ private:
     void updateNetworkAdapterList();
     void updatePerformanceTab(const SystemInfo& info);
     quint32 getPIDFromTreeIndex(const QModelIndex& index);
+
+    // === Новые поля для информации под графиками ===
+    // Диск
+    QTreeWidget* _diskInfoTree; // вместо QLabel
+    QScrollArea* _diskInfoScroll; // для прокрутки
+
+    // Сеть
+    QTreeWidget* _networkInfoTree; // вместо QLabel
+    QScrollArea* _networkInfoScroll; // для прокрутки
+
+    // GPU
+    QTreeWidget* _gpuInfoTree; // вместо QLabel
+    QScrollArea* _gpuInfoScroll; // для прокрутки
+
+    // CPU
+    QTreeWidget* _cpuInfoTree; // вместо QLabel
+    QScrollArea* _cpuInfoScroll; // для прокрутки
+
+    // Память
+    QTreeWidget* _memoryInfoTree; // вместо QLabel
+    QScrollArea* _memoryInfoScroll; // для прокрутки
+
+    // Методы для сохранения/восстановления состояния
+    QStringList getExpandedItems(QTreeWidget* tree);
+    void setExpandedItems(QTreeWidget* tree, const QStringList& items);
+
+    void setupStyles();
 };

@@ -29,7 +29,7 @@ WinTop::~WinTop()
 
 void WinTop::setupUI()
 {
-    
+    setupStyles();
     _tabWidget = new QTabWidget(this);
 
     // === Processes Tab ===
@@ -51,6 +51,7 @@ void WinTop::setupUI()
 
     _processTableView->setModel(_proxyModel);
     _processTableView->setSortingEnabled(true);
+    _processTableView->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
 
     connect(_filterLineEdit, &QLineEdit::textChanged, this, &WinTop::onFilterLineEditTextChanged);
 
@@ -102,13 +103,14 @@ QList<ProcessInfo> WinTop::updateData()
         auto services = m_serviceMonitor->getServices();
         m_servicesModel->updateData(services);
     }
+    updatePerformanceTab(info);
 
     /*// Обновляем метки
     _osLabel->setText("Windows 10");
     _ramLabel->setText(QString("%1 / %2 GB").arg(info.usedMemory / 1024 / 1024 / 1024.0, 0, 'f', 1)
         .arg(info.totalMemory / 1024 / 1024 / 1024.0, 0, 'f', 1));*/
 
-    updatePerformanceTab(info);
+    
 
     return processes;
 }
@@ -278,16 +280,17 @@ void WinTop::setUpPerformanceTab()
 
     diskPerfLayout->addWidget(_diskChartView);
 
-    // Информация о диске (внизу)
-    _diskInfoWidget = new QWidget();
-    auto* diskInfoLayout = new QVBoxLayout(_diskInfoWidget);
+    // === Информация о диске (внизу) ===
+    _diskInfoTree = new QTreeWidget();
+    _diskInfoTree->setHeaderHidden(true);
+    _diskInfoTree->setRootIsDecorated(false); // убираем иконки
 
-    // QLabel для отображения информации
-    auto* diskInfoLabel = new QLabel("Информация о диске появится здесь...");
-    diskInfoLabel->setObjectName("diskInfoLabel"); // для удобства поиска
-    diskInfoLayout->addWidget(diskInfoLabel);
+    _diskInfoScroll = new QScrollArea();
+    _diskInfoScroll->setWidget(_diskInfoTree);
+    _diskInfoScroll->setWidgetResizable(true);
+    _diskInfoScroll->setMaximumHeight(150); // ограничиваем высоту
 
-    diskPerfLayout->addWidget(_diskInfoWidget);
+    diskPerfLayout->addWidget(_diskInfoScroll);
 
     _performanceStack->addWidget(_diskPerformancePage);
 
@@ -405,12 +408,16 @@ void WinTop::setUpNetworkPerformanceTab()
     networkPerfLayout->addWidget(_networkChartView);
 
     // Информация о сети (внизу)
-    _networkInfoWidget = new QWidget();
-    auto* networkInfoLayout = new QVBoxLayout(_networkInfoWidget);
-    auto networkInfoLabel = new QLabel("Информация о сети появится здесь...");
-    networkInfoLabel->setObjectName("networkInfoLabel");
-    networkInfoLayout->addWidget(networkInfoLabel);
-    networkPerfLayout->addWidget(_networkInfoWidget);
+    _networkInfoTree = new QTreeWidget();
+    _networkInfoTree->setHeaderHidden(true);
+    _networkInfoTree->setRootIsDecorated(false);
+
+    _networkInfoScroll = new QScrollArea();
+    _networkInfoScroll->setWidget(_networkInfoTree);
+    _networkInfoScroll->setWidgetResizable(true);
+    _networkInfoScroll->setMaximumHeight(150);
+
+    networkPerfLayout->addWidget(_networkInfoScroll);
 
     _performanceStack->addWidget(_networkPerformancePage);
 
@@ -473,13 +480,17 @@ void WinTop::setUpGPUPerformanceTab()
 
     gpuPerfLayout->addWidget(_gpuChartView);
 
-    // Информация о GPU (внизу)
-    _gpuInfoWidget = new QWidget();
-    auto* gpuInfoLayout = new QVBoxLayout(_gpuInfoWidget);
-    auto gpuInfoLabel = new QLabel("Информация о сети появится здесь...");
-    gpuInfoLabel->setObjectName("gpuInfoLabel");
-    gpuInfoLayout->addWidget(gpuInfoLabel);
-    gpuPerfLayout->addWidget(_gpuInfoWidget);
+    // === Информация о GPU (внизу) ===
+    _gpuInfoTree = new QTreeWidget();
+    _gpuInfoTree->setHeaderHidden(true);
+    _gpuInfoTree->setRootIsDecorated(false);
+
+    _gpuInfoScroll = new QScrollArea();
+    _gpuInfoScroll->setWidget(_gpuInfoTree);
+    _gpuInfoScroll->setWidgetResizable(true);
+    _gpuInfoScroll->setMaximumHeight(150);
+
+    gpuPerfLayout->addWidget(_gpuInfoScroll);
     _performanceStack->addWidget(_gpuPerformancePage);
 }
 
@@ -509,13 +520,17 @@ void WinTop::setUpCPUPerformanceTab()
 
     cpuPerfLayout->addWidget(_cpuChartView);
 
-    // Информация о CPU (внизу)
-    _cpuInfoWidget = new QWidget();
-    auto* cpuInfoLayout = new QVBoxLayout(_cpuInfoWidget);
-    auto cpuInfoLabel = new QLabel("Информация о CPU появится здесь...");
-    cpuInfoLabel->setObjectName("cpuInfoLabel");
-    cpuInfoLayout->addWidget(cpuInfoLabel);
-    cpuPerfLayout->addWidget(_cpuInfoWidget);
+    // === Информация о CPU (внизу) ===
+    _cpuInfoTree = new QTreeWidget();
+    _cpuInfoTree->setHeaderHidden(true);
+    _cpuInfoTree->setRootIsDecorated(false);
+
+    _cpuInfoScroll = new QScrollArea();
+    _cpuInfoScroll->setWidget(_cpuInfoTree);
+    _cpuInfoScroll->setWidgetResizable(true);
+    _cpuInfoScroll->setMaximumHeight(150);
+
+    cpuPerfLayout->addWidget(_cpuInfoScroll);
 
     _performanceStack->addWidget(_cpuPerformancePage);
 }
@@ -546,13 +561,17 @@ void WinTop::setUpMemoryPerformanceTab()
 
     memoryPerfLayout->addWidget(_memoryChartView);
 
-    // Информация о Памяти (внизу)
-    _memoryInfoWidget = new QWidget();
-    auto* memoryInfoLayout = new QVBoxLayout(_memoryInfoWidget);
-    auto memoryInfoLabel = new QLabel("Информация о RAM появится здесь...");
-    memoryInfoLabel->setObjectName("memoryInfoLabel");
-    memoryInfoLayout->addWidget(memoryInfoLabel);
-    memoryPerfLayout->addWidget(_memoryInfoWidget);
+    // === Информация о Памяти (внизу) ===
+    _memoryInfoTree = new QTreeWidget();
+    _memoryInfoTree->setHeaderHidden(true);
+    _memoryInfoTree->setRootIsDecorated(false);
+
+    _memoryInfoScroll = new QScrollArea();
+    _memoryInfoScroll->setWidget(_memoryInfoTree);
+    _memoryInfoScroll->setWidgetResizable(true);
+    _memoryInfoScroll->setMaximumHeight(150);
+
+    memoryPerfLayout->addWidget(_memoryInfoScroll);
 
     _performanceStack->addWidget(_memoryPerformancePage);
 }
@@ -570,6 +589,13 @@ void WinTop::updateNetworkAdapterList() {
 
 void WinTop::updatePerformanceTab(const SystemInfo& info)
 {
+    // === Сохраняем состояния ===
+    QStringList diskExpanded = getExpandedItems(_diskInfoTree);
+    QStringList networkExpanded = getExpandedItems(_networkInfoTree);
+    QStringList gpuExpanded = getExpandedItems(_gpuInfoTree);
+    QStringList cpuExpanded = getExpandedItems(_cpuInfoTree);
+    QStringList memoryExpanded = getExpandedItems(_memoryInfoTree);
+
     // === Обновляем данные диска ===
     auto diskInfo = _diskMonitor->getDiskInfo();
     auto processDiskInfo = _diskMonitor->getProcessDiskInfo();
@@ -577,7 +603,7 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     // Обновляем график диска
     static int diskX = 0;
     double totalRead = diskInfo.readBytesPerSec, totalWrite = diskInfo.writeBytesPerSec;
-        _diskSeriesRead->append(diskX, totalRead / 1024 / 1024); // в МБ/с
+    _diskSeriesRead->append(diskX, totalRead / 1024 / 1024); // в МБ/с
     _diskSeriesWrite->append(diskX, totalWrite / 1024 / 1024);
     diskX++;
     if (_diskSeriesRead->count() > 100) {
@@ -587,26 +613,26 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     _diskAxisX->setRange(diskX - 100, diskX);
 
     // === Обновляем информацию о диске ===
-    QString diskInfoText = "Диски:\n";
+    _diskInfoTree->clear();
+    auto* diskGroup = new QTreeWidgetItem(_diskInfoTree);
+    diskGroup->setText(0, "Диски");
     for (const auto& disk : diskInfo.disks) {
-        double totalGB = disk.totalBytes / 1024.0 / 1024.0 / 1024.0;
-        double freeGB = disk.freeBytes / 1024.0 / 1024.0 / 1024.0;
-        double usedGB = totalGB - freeGB;
-        diskInfoText += QString("%1: %2 ГБ / %3 ГБ (использовано %4 ГБ)\n")
+        auto* item = new QTreeWidgetItem(diskGroup);
+        diskGroup->setExpanded(true); 
+        item->setText(0, QString("%1: %2 ГБ / %3 ГБ")
             .arg(disk.name)
-            .arg(usedGB, 0, 'f', 2)
-            .arg(totalGB, 0, 'f', 2)
-            .arg(usedGB, 0, 'f', 2);
+            .arg((disk.totalBytes - disk.freeBytes) / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
+            .arg(disk.totalBytes / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2));
     }
-    diskInfoText += QString("\nОбщий I/O: Чтение %1 МБ/с, Запись %2 МБ/с")
-        .arg(totalRead / 1024 / 1024, 0, 'f', 2)
-        .arg(totalWrite / 1024 / 1024, 0, 'f', 2);
 
-    // Найдём QLabel и обновим текст
-    auto* diskInfoLabel = _diskInfoWidget->findChild<QLabel*>("diskInfoLabel");
-    if (diskInfoLabel) {
-        diskInfoLabel->setText(diskInfoText);
-    }
+    // Добавляем общую статистику
+    auto* totalReadItem = new QTreeWidgetItem(diskGroup);
+    totalReadItem->setText(0, QString("Всего прочитано: %1 МБ/с")
+        .arg(diskInfo.readBytesPerSec / 1024 / 1024, 0, 'f', 2));
+
+    auto* totalWriteItem = new QTreeWidgetItem(diskGroup);
+    totalWriteItem->setText(0, QString("Всего записано: %1 МБ/с")
+        .arg(diskInfo.writeBytesPerSec / 1024 / 1024, 0, 'f', 2));
 
     // === Обновляем данные сети ===
     auto networkInfo = _networkMonitor->getNetworkInfo();
@@ -636,20 +662,25 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     _networkAxisX->setRange(networkX - 100, networkX);
 
     // === Обновляем информацию о сети ===
-    QString networkInfoText = "Сетевые интерфейсы:\n";
-    for (const auto& net : networkInfo) {
-        if (net.name == selectedAdapter) {
-            networkInfoText += QString("(%1): Приём %2 МБит/с, Отправка %3 МБит/с\n")
-                .arg(net.description)
-                .arg(net.receiveBytesPerSec / 1024 / 128, 0, 'f', 2)
-                .arg(net.sendBytesPerSec / 1024 / 128, 0, 'f', 2);
-        }
-    }
+    _networkInfoTree->clear();
+    auto* networkGroup = new QTreeWidgetItem(_networkInfoTree);
+    networkGroup->setText(0, "Сетевые адаптеры");
+    networkGroup->setExpanded(true);
+    for (const auto& net : networkInfo) 
+    {
+        if (net.name == selectedAdapter)
+        {
+            auto* adapterGroup = new QTreeWidgetItem(networkGroup);
+            adapterGroup->setText(0, net.description);
 
-    // Найдём QLabel и обновим текст
-    auto* networkInfoLabel = _networkInfoWidget->findChild<QLabel*>("networkInfoLabel");
-    if (networkInfoLabel) {
-        networkInfoLabel->setText(networkInfoText);
+            auto* recvItem = new QTreeWidgetItem(adapterGroup);
+            recvItem->setText(0, QString("Приём: %1 МБ/с")
+                .arg(net.receiveBytesPerSec / 1024 / 1024, 0, 'f', 2));
+
+            auto* sentItem = new QTreeWidgetItem(adapterGroup);
+            sentItem->setText(0, QString("Отправка: %1 МБ/с")
+                .arg(net.sendBytesPerSec / 1024 / 1024, 0, 'f', 2));
+        }
     }
 
     // === Обновляем данные GPU ===
@@ -701,24 +732,32 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     _gpuAxisX->setRange(gpuX - 100, gpuX);
 
     // === Обновляем информацию о GPU ===
-    QString gpuInfoText = "Видеокарты:\n";
+    _gpuInfoTree->clear();
+    auto* gpuGroup = new QTreeWidgetItem(_gpuInfoTree);
+    gpuGroup->setText(0, "Видеокарты");
+    gpuGroup->setExpanded(true);
     for (const auto& gpu : gpuInfo) {
-        gpuInfoText += QString("%1: Загрузка %2%, Память %3 ГБ / %4 ГБ, Производитель %5, Температура: %7 C, Текущее энергопотребление: %6 Вт\n")
-            .arg(gpu.name)
-            .arg(gpu.usage)
+        auto* gpuAdapterGroup = new QTreeWidgetItem(gpuGroup);
+        gpuAdapterGroup->setText(0, gpu.name);
+
+        auto* usageItem = new QTreeWidgetItem(gpuAdapterGroup);
+        usageItem->setText(0, QString("Загрузка: %1%").arg(gpu.usage));
+
+        auto* memoryItem = new QTreeWidgetItem(gpuAdapterGroup);
+        memoryItem->setText(0, QString("Память: %1 ГБ / %2 ГБ")
             .arg(gpu.usedMemoryBytes / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
-            .arg(gpu.totalMemoryBytes / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
-            .arg(gpu.vendor)
-            .arg(gpu.powerUsage)
-            .arg(gpu.temperatureCelsius);
+            .arg(gpu.totalMemoryBytes / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2));
+
+        auto* powerItem = new QTreeWidgetItem(gpuAdapterGroup);
+        powerItem->setText(0, QString("Потребление: %1 Вт").arg(gpu.powerUsage));
+
+        auto* tempItem = new QTreeWidgetItem(gpuAdapterGroup);
+        tempItem->setText(0, QString("Температура: %1 °C").arg(gpu.temperatureCelsius, 0, 'f', 1));
+
+        auto* vendorItem = new QTreeWidgetItem(gpuAdapterGroup);
+        vendorItem->setText(0, QString("Производитель: %1").arg(gpu.vendor));
     }
 
-    // Найдём QLabel и обновим текст
-    auto* gpuInfoLabel = _gpuInfoWidget->findChild<QLabel*>("gpuInfoLabel");
-    if (gpuInfoLabel) {
-        gpuInfoLabel->setText(gpuInfoText);
-    }
-    
     // Обновляем график CPU
     static int cpuX = 0;
     _cpuSeries->append(cpuX, info.cpuUsage);
@@ -728,41 +767,50 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     }
     _cpuAxisX->setRange(cpuX - 100, cpuX);
 
-    // === Обновляем информацию о CPU ===
-    QString cpuInfoText = QString(
-        "Загрузка ЦП: %1%\n"
-        "Базовая частота: %2 ГГц\n"
-        "Число процессов: %3\n"
-        "Число потоков: %4\n"
-        "Число ядер: %5\n"
-        "Число логических процессоров: %6\n"
-        "Кэш L1: %7 КБ\n"
-        "Кэш L2: %8 КБ\n"
-        "Кэш L3: %9 МБ"
-        "\nЗагрузка ядер:"
-    ).arg(info.cpuUsage, 0, 'f', 2)
-        .arg(info.baseSpeedGHz, 0, 'f', 2)
-        .arg(info.processCount)
-        .arg(info.threadCount)
-        .arg(info.coreCount)
-        .arg(info.logicalProcessorCount)
-        .arg(info.cacheL1KB)
-        .arg(info.cacheL2KB)
-        .arg(info.cacheL3KB / 1024);
-    // Добавь сюда другую информацию о CPU, если нужно
+    _cpuInfoTree->clear();
+    auto* cpuGroup = new QTreeWidgetItem(_cpuInfoTree);
+    cpuGroup->setText(0, "Центральный процессор");
+    cpuGroup->setExpanded(true);
 
+    auto* usageItem = new QTreeWidgetItem(cpuGroup);
+    usageItem->setText(0, QString("Загрузка ЦП: %1%").arg(info.cpuUsage, 0, 'f', 2));
+
+    auto* baseSpeedItem = new QTreeWidgetItem(cpuGroup);
+    baseSpeedItem->setText(0, QString("Базовая частота: %1 ГГц").arg(info.baseSpeedGHz, 0, 'f', 2));
+
+    auto* procCountItem = new QTreeWidgetItem(cpuGroup);
+    procCountItem->setText(0, QString("Число процессов: %1").arg(info.processCount));
+
+    auto* threadCountItem = new QTreeWidgetItem(cpuGroup);
+    threadCountItem->setText(0, QString("Число потоков: %1").arg(info.threadCount));
+
+    auto* coreCountItem = new QTreeWidgetItem(cpuGroup);
+    coreCountItem->setText(0, QString("Число ядер: %1").arg(info.coreCount));
+
+    auto* logicalCountItem = new QTreeWidgetItem(cpuGroup);
+    logicalCountItem->setText(0, QString("Логические процессоры: %1").arg(info.logicalProcessorCount));
+
+    auto* cacheGroup = new QTreeWidgetItem(cpuGroup);
+    cacheGroup->setText(0, "Кэш-память");
+
+    auto* cacheL1Item = new QTreeWidgetItem(cacheGroup);
+    cacheL1Item->setText(0, QString("L1: %1 КБ").arg(info.cacheL1KB));
+
+    auto* cacheL2Item = new QTreeWidgetItem(cacheGroup);
+    cacheL2Item->setText(0, QString("L2: %1 КБ").arg(info.cacheL2KB));
+
+    auto* cacheL3Item = new QTreeWidgetItem(cacheGroup);
+    cacheL3Item->setText(0, QString("L3: %1 КБ").arg(info.cacheL3KB));
+
+    // Загрузка ядер
+    auto* coresGroup = new QTreeWidgetItem(cpuGroup);
+    coresGroup->setText(0, "Загрузка ядер");
     for (int i = 0; i < info.cpuCoreUsage.size(); i++) {
-        cpuInfoText += QString("\n  Ядро %1: %2%").arg(i).arg(info.cpuCoreUsage[i], 0, 'f', 2);
-    }
-
-    // Найдём QLabel и обновим текст
-    auto* cpuInfoLabel = _cpuInfoWidget->findChild<QLabel*>("cpuInfoLabel");
-    if (cpuInfoLabel) {
-        cpuInfoLabel->setText(cpuInfoText);
+        auto* coreItem = new QTreeWidgetItem(coresGroup);
+        coreItem->setText(0, QString("Ядро %1: %2%").arg(i + 1).arg(info.cpuCoreUsage[i], 0, 'f', 2));
     }
 
     // === Обновляем данные Памяти ===
-    // Обновляем график Памяти
     static int memoryX = 0;
     _memorySeriesUsed->append(memoryX, (double)info.usedMemory / (double)info.totalMemory * 100.0);
     memoryX++;
@@ -772,18 +820,22 @@ void WinTop::updatePerformanceTab(const SystemInfo& info)
     _memoryAxisX->setRange(memoryX - 100, memoryX);
 
     // === Обновляем информацию о Памяти ===
-    QString memoryInfoText = QString(
-        "Память: %1 ГБ / %2 ГБ (использовано %3%)\n"
-    ).arg(info.usedMemory / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
+    _memoryInfoTree->clear();
+    auto* memoryGroup = new QTreeWidgetItem(_memoryInfoTree);
+    memoryGroup->setText(0, "Оперативная память");
+    memoryGroup->setExpanded(true);
+
+    auto* memoryItem = new QTreeWidgetItem(memoryGroup);
+    memoryItem->setText(0, QString("Использовано: %1 ГБ / %2 ГБ (%3%)")
+        .arg(info.usedMemory / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
         .arg(info.totalMemory / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2)
-        .arg((double)info.usedMemory / (double)info.totalMemory * 100.0, 0, 'f', 2);
-
-    // Найдём QLabel и обновим текст
-    auto* memoryInfoLabel = _memoryInfoWidget->findChild<QLabel*>("memoryInfoLabel");
-    if (memoryInfoLabel) {
-        memoryInfoLabel->setText(memoryInfoText);
-    }
-
+        .arg((double)info.usedMemory / info.totalMemory * 100.0, 0, 'f', 2));
+   
+    setExpandedItems(_diskInfoTree, diskExpanded);
+    setExpandedItems(_networkInfoTree, networkExpanded);
+    setExpandedItems(_gpuInfoTree, gpuExpanded);
+    setExpandedItems(_cpuInfoTree, cpuExpanded);
+    setExpandedItems(_memoryInfoTree, memoryExpanded);
 }
 
 void WinTop::killSelectedProcesses()
@@ -848,4 +900,198 @@ void WinTop::onServiceContextMenu(const QPoint& pos) {
 
     // Показываем меню
     m_serviceContextMenu->exec(m_servicesTableView->viewport()->mapToGlobal(pos));
+}
+
+QStringList WinTop::getExpandedItems(QTreeWidget* tree) {
+    QStringList expanded;
+    std::function<void(QTreeWidgetItem*)> traverse;
+    traverse = [&](QTreeWidgetItem* item) {
+        if (item->isExpanded()) {
+            // Сохраняем путь к элементу (например, "Группа/Подгруппа/Элемент")
+            QStringList path;
+            QTreeWidgetItem* current = item;
+            while (current) {
+                path.prepend(current->text(0));
+                current = current->parent();
+            }
+            expanded.append(path.join("/"));
+        }
+        for (int i = 0; i < item->childCount(); ++i) {
+            traverse(item->child(i));
+        }
+    };
+
+    for (int i = 0; i < tree->topLevelItemCount(); ++i) {
+        traverse(tree->topLevelItem(i));
+    }
+    return expanded;
+}
+
+void WinTop::setExpandedItems(QTreeWidget* tree, const QStringList& items) {
+    std::function<void(QTreeWidgetItem*, const QStringList&)> traverse;
+    traverse = [&](QTreeWidgetItem* item, const QStringList& paths) {
+        QStringList path;
+        QTreeWidgetItem* current = item;
+        while (current) {
+            path.prepend(current->text(0));
+            current = current->parent();
+        }
+        QString currentPath = path.join("/");
+
+        if (paths.contains(currentPath)) {
+            item->setExpanded(true);
+        }
+
+        for (int i = 0; i < item->childCount(); ++i) {
+            traverse(item->child(i), paths);
+        }
+        };
+
+    for (int i = 0; i < tree->topLevelItemCount(); ++i) {
+        traverse(tree->topLevelItem(i), items);
+    }
+}
+
+void WinTop::setupStyles() {
+    QString style = R"(
+        QMainWindow {
+            background-color: #f5f5f5;
+        }
+
+        QTabWidget::pane {
+            border: 1px solid #dcdcdc;
+            background-color: #ffffff;
+        }
+
+        QTabBar::tab {
+            background-color: #e0e0e0;
+            color: #333333;
+            padding: 8px 16px;
+            border: 1px solid #dcdcdc;
+            border-bottom-color: #dcdcdc;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+            margin-right: 2px;
+        }
+
+        QTabBar::tab:hover {
+            background-color: #f0f0f0;
+        }
+
+        QTreeWidget {
+            background-color: #ffffff;
+            alternate-background-color: #f9f9f9;
+            border: 1px solid #dcdcdc;
+            font-size: 12px;
+        }
+
+        QTreeWidget::item {
+            height: 20px;
+        }
+
+
+        QTableView {
+            background-color: #ffffff;
+            alternate-background-color: #f9f9f9;
+            gridline-color: #e0e0e0;
+            border: 1px solid #dcdcdc;
+        }
+
+        QTableView::item {
+            padding: 4px;
+            border: none;
+        }
+
+        QHeaderView::section {
+            background-color: #f0f0f0;
+            color: #333333;
+            padding: 6px;
+            border: 1px solid #dcdcdc;
+            font-weight: bold;
+        }
+
+        QTreeView {
+            background-color: #ffffff;
+            alternate-background-color: #f9f9f9;
+            border: 1px solid #dcdcdc;
+        }
+
+        QChartView {
+            border: 1px solid #dcdcdc;
+            background-color: #ffffff;
+        }
+
+        QScrollArea {
+            border: 1px solid #dcdcdc;
+            background-color: #ffffff;
+        }
+
+        QScrollBar:vertical {
+            background-color: #f0f0f0;
+            width: 12px;
+            border-radius: 4px;
+        }
+
+        QScrollBar::handle:vertical {
+            background-color: #c0c0c0;
+            border-radius: 4px;
+            min-height: 20px;
+        }
+
+        QScrollBar::handle:vertical:hover {
+            background-color: #a0a0a0;
+        }
+
+        QComboBox {
+            background-color: #ffffff;
+            border: 1px solid #dcdcdc;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        QComboBox::drop-down {
+            border: none;
+        }
+
+        QComboBox::down-arrow {
+            image: url(down_arrow.png); /* Путь к иконке */
+        }
+
+        QLineEdit {
+            background-color: #ffffff;
+            border: 1px solid #dcdcdc;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        QMenuBar {
+            background-color: #f5f5f5;
+            spacing: 3px;
+        }
+
+        QMenuBar::item {
+            background-color: transparent;
+            padding: 4px 8px;
+        }
+
+        QMenuBar::item:pressed {
+            background-color: #cce6ff;
+        }
+
+        QMenu {
+            background-color: #ffffff;
+            border: 1px solid #dcdcdc;
+        }
+
+        QMenu::item {
+            padding: 4px 20px;
+        }
+
+        QMenu::separator {
+            height: 1px;
+            background-color: #dcdcdc;
+        }
+    )";
+
+    qApp->setStyleSheet(style);
 }
