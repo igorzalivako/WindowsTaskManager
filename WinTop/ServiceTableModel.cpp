@@ -25,7 +25,7 @@ QVariant ServiceTableModel::data(const QModelIndex& index, int role) const {
         case 0:
             return svc.name;
         case 1:
-            return svc.description.isEmpty() ? "N/A" : svc.description;
+            return svc.description.isEmpty() ? "" : svc.description;
         case 2:
             return ServiceStatusString[svc.status];
         default:
@@ -40,7 +40,7 @@ QVariant ServiceTableModel::data(const QModelIndex& index, int role) const {
         case 0:
             return svc.name;
         case 1:
-            return svc.description.isEmpty() ? "N/A" : svc.description;
+            return svc.description.isEmpty() ? "" : svc.description;
         case 2:
             return ServiceStatusString[svc.status];
         default:

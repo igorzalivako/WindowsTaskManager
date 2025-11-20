@@ -1,4 +1,4 @@
-#include "ProcessTableModel.h"
+п»ї#include "ProcessTableModel.h"
 #include <QApplication>
 
 const int COLUMNS_COUNT = 7;
@@ -18,6 +18,35 @@ int ProcessTableModel::rowCount(const QModelIndex& parent) const
 int ProcessTableModel::columnCount(const QModelIndex& parent) const 
 {
     return COLUMNS_COUNT; // PID, Name, CPU, Memory, Disk Read, Disk Write, GPUUsage
+}
+
+static inline int lerp(int a, int b, double t) {
+    return static_cast<int>(std::lround(a + (b - a) * t));
+}
+
+static inline QColor performanceColor(int value)
+{
+    int v = std::clamp(value, 0, 100);
+
+    const QColor Y(255, 255, 200); // light yellow
+    const QColor O(255, 165, 0); // orange
+    const QColor R(200, 0, 0); // deep red
+
+    int r, g, b;
+    if (v <= 50) {
+        double t = v / 50.0; // 0..1
+        r = lerp(Y.red(), O.red(), t);
+        g = lerp(Y.green(), O.green(), t);
+        b = lerp(Y.blue(), O.blue(), t);
+    }
+    else {
+        double t = (v - 50) / 50.0; // 0..1
+        r = lerp(O.red(), R.red(), t);
+        g = lerp(O.green(), R.green(), t);
+        b = lerp(O.blue(), R.blue(), t);
+    }
+
+    return QColor(r, g, b);
 }
 
 QVariant ProcessTableModel::data(const QModelIndex& index, int role) const 
@@ -43,7 +72,7 @@ QVariant ProcessTableModel::data(const QModelIndex& index, int role) const
         default: return QVariant();
         }
     }
-    // Для сортировки
+    // Р”Р»СЏ СЃРѕСЂС‚РёСЂРѕРІРєРё
     if (role == Qt::UserRole)
     {
         switch (index.column()) 
@@ -59,19 +88,51 @@ QVariant ProcessTableModel::data(const QModelIndex& index, int role) const
         }
     }
 
-    if (role == Qt::DecorationRole && index.column() == 1) { // колонка с именем
+    if (role == Qt::DecorationRole && index.column() == 1) { // РєРѕР»РѕРЅРєР° СЃ РёРјРµРЅРµРј
         if (_processControl) {
-            // Проверяем кэш
+            // РџСЂРѕРІРµСЂСЏРµРј РєСЌС€
             if (_iconCache.contains(proc.pid)) {
                 return _iconCache[proc.pid];
             }
 
-            // Получаем иконку и кэшируем
+            // РџРѕР»СѓС‡Р°РµРј РёРєРѕРЅРєСѓ Рё РєСЌС€РёСЂСѓРµРј
             QIcon icon = _processControl->getProcessIcon(proc.pid);
             _iconCache[proc.pid] = icon;
             return icon;
         }
     }
+
+    if (role == Qt::BackgroundRole) {
+        double value = 0;
+
+        switch (index.column()) {
+        case 2: // Р—Р°РіСЂСѓР·РєР° Р¦Рџ (%)
+            value = proc.cpuUsage;
+            break;
+
+        case 3: // РџР°РјСЏС‚СЊ (MB)
+            value = proc.memoryUsage / 1024.0 / 1024.0 / 16.0 / 1024.0 * 100;
+            break;
+
+        case 4: // GPU
+            value = proc.diskReadBytes / 1024.0 / 1024.0 / 1000.0 * 100;
+            break;
+
+        case 5: // Disk Read
+            value = proc.diskWriteBytes / 1024.0 / 1024.0 / 1000.0 * 100;
+            break;
+
+        case 6:
+            value = proc.gpuUsage;
+            break;
+
+        default:
+            return QVariant(); // РґР»СЏ РґСЂСѓРіРёС… РєРѕР»РѕРЅРѕРє РЅРµ СЂРёСЃСѓРµРј С†РІРµС‚
+        }
+
+        return performanceColor(value);
+    }
+
 
     return QVariant();
 }
@@ -114,22 +175,22 @@ void ProcessTableModel::updateData(const QList<ProcessInfo>& data) {
 
 void ProcessTableModel::updateDataPartial(const QList<ProcessInfo>& newData) {
     if (_processes.isEmpty()) {
-        // Первый запуск — просто заполняем
+        // РџРµСЂРІС‹Р№ Р·Р°РїСѓСЃРє вЂ” РїСЂРѕСЃС‚Рѕ Р·Р°РїРѕР»РЅСЏРµРј
         updateData(newData);
         return;
     }
 
-    // Создаём мапу по PID для быстрого поиска
+    // РЎРѕР·РґР°С‘Рј РјР°РїСѓ РїРѕ PID РґР»СЏ Р±С‹СЃС‚СЂРѕРіРѕ РїРѕРёСЃРєР°
     QHash<quint32, ProcessInfo> newMap;
     for (const auto& proc : newData) {
         newMap[proc.pid] = proc;
     }
 
-    // Обновляем существующие
+    // РћР±РЅРѕРІР»СЏРµРј СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёРµ
     for (int i = 0; i < _processes.size(); ++i) {
         quint32 pid = _processes[i].pid;
         if (newMap.contains(pid)) {
-            // Проверим, изменились ли данные
+            // РџСЂРѕРІРµСЂРёРј, РёР·РјРµРЅРёР»РёСЃСЊ Р»Рё РґР°РЅРЅС‹Рµ
             const ProcessInfo& newProc = newMap[pid];
             bool changed = false;
 
@@ -146,7 +207,7 @@ void ProcessTableModel::updateDataPartial(const QList<ProcessInfo>& newData) {
         }
     }
 
-    // Находим новые процессы
+    // РќР°С…РѕРґРёРј РЅРѕРІС‹Рµ РїСЂРѕС†РµСЃСЃС‹
     QSet<quint32> oldPids;
     for (const auto& proc : _processes) {
         oldPids.insert(proc.pid);
@@ -159,7 +220,7 @@ void ProcessTableModel::updateDataPartial(const QList<ProcessInfo>& newData) {
         }
     }
 
-    // Добавляем новые
+    // Р”РѕР±Р°РІР»СЏРµРј РЅРѕРІС‹Рµ
     if (!newProcesses.isEmpty()) {
         int oldSize = _processes.size();
         beginInsertRows(QModelIndex(), oldSize, oldSize + newProcesses.size() - 1);
@@ -167,7 +228,7 @@ void ProcessTableModel::updateDataPartial(const QList<ProcessInfo>& newData) {
         endInsertRows();
     }
 
-    // Находим удалённые
+    // РќР°С…РѕРґРёРј СѓРґР°Р»С‘РЅРЅС‹Рµ
     QSet<quint32> newPids;
     for (const auto& proc : newData) {
         newPids.insert(proc.pid);
@@ -180,9 +241,9 @@ void ProcessTableModel::updateDataPartial(const QList<ProcessInfo>& newData) {
         }
     }
 
-    // Удаляем удалённые
+    // РЈРґР°Р»СЏРµРј СѓРґР°Р»С‘РЅРЅС‹Рµ
     if (!removedIndices.isEmpty()) {
-        // Сортируем индексы по убыванию
+        // РЎРѕСЂС‚РёСЂСѓРµРј РёРЅРґРµРєСЃС‹ РїРѕ СѓР±С‹РІР°РЅРёСЋ
         std::sort(removedIndices.begin(), removedIndices.end(), std::greater<int>());
 
         for (int idx : removedIndices) {

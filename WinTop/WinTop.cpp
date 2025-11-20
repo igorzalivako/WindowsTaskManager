@@ -7,6 +7,7 @@
 #include <WindowsGPUMonitor.h>
 #include <WindowsServiceMonitor.h>
 #include "WindowsServiceControl.h"
+#include "ProcessTableProxyModel.h"
 
 WinTop::WinTop(QWidget *parent)
     : QMainWindow(parent)
@@ -48,7 +49,7 @@ void WinTop::setupUI()
     _processModel = new ProcessTableModel(this);
     _processModel->setProcessControl(_processControl.get());
 
-    _proxyModel = new QSortFilterProxyModel(this);
+    _proxyModel = new ProcessTableProxyModel(this);
     _proxyModel->setSourceModel(_processModel);
     _proxyModel->setSortRole(Qt::UserRole);
 
@@ -889,7 +890,6 @@ void WinTop::onDataReady(const UpdateData& data)
     // Обновляем вкладку производительности
     updatePerformanceTab(data.systemInfo, data.disks, data.networkInterfaces, data.gpus);
     static int i = 0;
-    qDebug() << "Данные ВЫВЕДЕНЫ " << i++;
 }
 
 QStringList WinTop::getExpandedItems(QTreeWidget* tree) {
@@ -989,7 +989,7 @@ void WinTop::setupStyles() {
 
         QTableView::item {
             padding: 4px;
-            border: none;
+
         }
 
         QHeaderView::section {

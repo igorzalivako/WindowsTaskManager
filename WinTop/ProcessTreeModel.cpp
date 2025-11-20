@@ -127,6 +127,35 @@ void ProcessTreeModel::updateData(const QList<ProcessInfo>& data) {
     _currentFlatTree = flatTree;
 }
 
+static inline int lerp(int a, int b, double t) {
+    return static_cast<int>(std::lround(a + (b - a) * t));
+}
+
+static inline QColor performanceColor(int value)
+{
+    int v = std::clamp(value, 0, 100);
+
+    const QColor Y(255, 255, 200); // light yellow
+    const QColor O(255, 165, 0); // orange
+    const QColor R(200, 0, 0); // deep red
+
+    int r, g, b;
+    if (v <= 50) {
+        double t = v / 50.0; // 0..1
+        r = lerp(Y.red(), O.red(), t);
+        g = lerp(Y.green(), O.green(), t);
+        b = lerp(Y.blue(), O.blue(), t);
+    }
+    else {
+        double t = (v - 50) / 50.0; // 0..1
+        r = lerp(O.red(), R.red(), t);
+        g = lerp(O.green(), R.green(), t);
+        b = lerp(O.blue(), R.blue(), t);
+    }
+
+    return QColor(r, g, b);
+}
+
 QVariant ProcessTreeModel::data(const QModelIndex& index, int role) const {
     if (!index.isValid())
     {
@@ -165,9 +194,106 @@ QVariant ProcessTreeModel::data(const QModelIndex& index, int role) const {
             }
             return 0ULL;
         }
+        case 4: // Disk Read (MB)
+        {
+            QString text = QStandardItemModel::data(index, Qt::DisplayRole).toString();
+            if (text.endsWith(" MB")) {
+                return text.left(text.length() - 3).toDouble();
+            }
+            return 0.0;
+        }
+
+        case 5: // Disk Write (MB)
+        {
+            QString text = QStandardItemModel::data(index, Qt::DisplayRole).toString();
+            if (text.endsWith(" MB")) {
+                return text.left(text.length() - 3).toDouble();
+            }
+            return 0.0;
+        }
+        case 6:
+        {
+            QString text = QStandardItemModel::data(index, Qt::DisplayRole).toString();
+            if (text.endsWith('%')) {
+                return text.left(text.length() - 1).toDouble();
+            }
+            return 0.0;
+        }
         default:
             return QVariant();
         }
+    }
+
+    if (role == Qt::BackgroundRole) {
+        double value = 0;
+
+        switch (index.column()) {
+        case 2: // Загрузка ЦП (%)
+        {
+            QString text = QStandardItemModel::data(index, Qt::DisplayRole).toString();
+            if (text.endsWith('%')) {
+                value = text.left(text.length() - 1).toDouble();
+            }
+            else {
+                value = 0.0;
+            }
+            break;
+        }
+
+        case 3: // Память (MB)
+        {
+            QString text = QStandardItemModel::data(index, Qt::DisplayRole).toString();
+            if (text.endsWith(" MB")) {
+                value = text.left(text.length() - 3).toDouble() / 16.0 / 1024 * 100;
+            }
+            else {
+                value = 0.0;
+            }
+
+            break;
+        }
+
+        case 4: // Disk Read (MB)
+        {
+            QString text = QStandardItemModel::data(index, Qt::DisplayRole).toString();
+            if (text.endsWith(" MB")) {
+                value = text.left(text.length() - 3).toDouble() / 1000 * 100;
+            }
+            else {
+                value = 0.0;
+            }
+
+            break;
+        }
+
+        case 5: // Disk Write (MB)
+        {
+            QString text = QStandardItemModel::data(index, Qt::DisplayRole).toString();
+            if (text.endsWith(" MB")) {
+                value = text.left(text.length() - 3).toDouble() / 1000 * 100;
+            }
+            else {
+                value = 0.0;
+            }
+
+            break;
+        }
+        case 6:
+        {
+            QString text = QStandardItemModel::data(index, Qt::DisplayRole).toString();
+            if (text.endsWith('%')) {
+                value = text.left(text.length() - 1).toDouble();
+            }
+            else {
+                value = 0.0;
+            }
+            break;
+        }
+
+        default:
+            return QVariant(); // для других колонок не рисуем цвет
+        }
+        return performanceColor(value);
     }
 
     return QStandardItemModel::data(index, role);

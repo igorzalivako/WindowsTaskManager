@@ -6,7 +6,7 @@
 const quint32 GRACEFUL_KILL_PROCESS_TIMEOUT = 3000;
 
 QString WindowsProcessControl::getProcessPath(quint32 pid) {
-    QString path = "N/A";
+    QString path = "";
     HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
     if (h_proc) {
         wchar_t buffer[MAX_PATH];
@@ -168,7 +168,7 @@ QIcon getStandardExeIcon() {
 QIcon WindowsProcessControl::getProcessIcon(quint32 pId)
 {
     QString path = getProcessPath(pId);
-    if (path == "N/A")
+    if (path == "")
         return getStandardExeIcon();
 
     SHFILEINFOW sfi = { 0 };
@@ -293,7 +293,7 @@ int WindowsProcessControl::getPriority(quint32 pid) {
 }
 
 QString WindowsProcessControl::getProcessUserName(quint32 pid) {
-    QString userName = "N/A";
+    QString userName = "Не определен";
     HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
     if (h_proc) {
         HANDLE h_token = nullptr;
@@ -324,7 +324,7 @@ QString WindowsProcessControl::getProcessUserName(quint32 pid) {
 }
 
 QString WindowsProcessControl::getProcessPriorityClass(quint32 pid) {
-    QString priority = "N/A";
+    QString priority = "Не определен";
     HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
     if (h_proc) {
         DWORD priority_class = GetPriorityClass(h_proc);

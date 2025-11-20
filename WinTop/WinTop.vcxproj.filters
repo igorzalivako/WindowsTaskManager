@@ -80,6 +80,9 @@
     <ClCompile Include="DataUpdater.cpp">
       <Filter>ui</Filter>
     </ClCompile>
+    <ClCompile Include="ProcessTableProxyModel.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="WinTop.ui">
@@ -103,6 +106,9 @@
       <Filter>ui</Filter>
     </QtMoc>
     <QtMoc Include="DataUpdater.h">
+      <Filter>ui</Filter>
+    </QtMoc>
+    <QtMoc Include="ProcessTableProxyModel.h">
       <Filter>ui</Filter>
     </QtMoc>
   </ItemGroup>
