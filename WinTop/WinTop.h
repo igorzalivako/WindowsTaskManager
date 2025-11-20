@@ -26,7 +26,7 @@
 #include "ui_WinTop.h"
 #include <QTimer.h>
 #include <memory>
-#include <IMonitor.h>
+#include <ISystemMonitor.h>
 #include "ProcessTableModel.h"
 #include <IProcessControl.h>
 #include "IProcessTreeBuilder.h"

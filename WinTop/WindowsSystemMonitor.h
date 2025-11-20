@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IMonitor.h"
+#include "ISystemMonitor.h"
 #include "IProcessControl.h"
 #include <windows.h>
 #include <map>
@@ -18,7 +18,7 @@ struct ProcessTimeInfo {
 	double cpu_usage = 0.0;
 };
 
-class WindowsSystemMonitor : public IMonitor
+class WindowsSystemMonitor : public ISystemMonitor
 {
 public:
 	SystemInfo getSystemInfo() override;

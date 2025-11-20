@@ -139,7 +139,7 @@
     <QtMoc Include="DataUpdater.h" />
     <ClInclude Include="IDiskMonitor.h" />
     <ClInclude Include="IGPUMonitor.h" />
-    <ClInclude Include="IMonitor.h" />
+    <ClInclude Include="ISystemMonitor.h" />
     <QtMoc Include="ProcessTableModel.h" />
     <ClInclude Include="INetworkMonitor.h" />
     <ClInclude Include="IProcessControl.h" />

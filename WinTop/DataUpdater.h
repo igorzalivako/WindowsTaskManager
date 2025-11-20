@@ -6,7 +6,7 @@
 #include <QList>
 #include <memory>
 #include "DataStructs.h"
-#include "IMonitor.h"
+#include "ISystemMonitor.h"
 #include "IServiceMonitor.h"
 #include "IDiskMonitor.h"
 #include "INetworkMonitor.h"
@@ -41,7 +41,7 @@ signals:
 
 private:
     QTimer m_timer;
-    std::unique_ptr<IMonitor> _monitor;
+    std::unique_ptr<ISystemMonitor> _monitor;
     std::unique_ptr<IDiskMonitor> _diskMonitor;
     std::unique_ptr<INetworkMonitor> _networkMonitor;
     std::unique_ptr<IGPUMonitor> _gpuMonitor;

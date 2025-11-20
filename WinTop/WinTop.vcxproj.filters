@@ -116,7 +116,7 @@
     <ClInclude Include="DataStructs.h">
       <Filter>core</Filter>
     </ClInclude>
-    <ClInclude Include="IMonitor.h">
+    <ClInclude Include="ISystemMonitor.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="WindowsSystemMonitor.h">

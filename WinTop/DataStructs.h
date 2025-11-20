@@ -36,8 +36,6 @@ struct ProcessInfo
 
 	quint64 diskReadBytes = 0;
 	quint64 diskWriteBytes = 0;
-	quint64 diskReadOps = 0;
-	quint64 diskWriteOps = 0;
 
 	quint64 gpuUsage = 0;
 };

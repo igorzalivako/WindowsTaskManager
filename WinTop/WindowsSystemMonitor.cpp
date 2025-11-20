@@ -194,8 +194,6 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
             const auto& diskInfo = processDiskInfo[pid];
             info.diskReadBytes = diskInfo.bytesRead;
             info.diskWriteBytes = diskInfo.bytesWritten;
-            info.diskReadOps = diskInfo.readOperations;
-            info.diskWriteOps = diskInfo.writeOperations;
         }
 
         if (processGPUInfo.contains(pid))

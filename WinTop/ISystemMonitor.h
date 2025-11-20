@@ -2,9 +2,9 @@
 
 #include "DataStructs.h"
 
-class IMonitor {
+class ISystemMonitor {
 public:
-	virtual ~IMonitor() = default;
+	virtual ~ISystemMonitor() = default;
 	virtual SystemInfo getSystemInfo() = 0;
 	virtual QList<ProcessInfo> getProcesses() = 0;
 };
