@@ -1,12 +1,14 @@
 ﻿#pragma once
 #include <QDialog>
 #include <QVBoxLayout>
-#include <QFormLayout>
+#include <QHBoxLayout>
+#include <QTreeWidget>
 #include <QLabel>
-#include <QTextEdit>
 #include <QDialogButtonBox>
 #include <QScrollArea>
+#include <QHeaderView>
 #include "DataStructs.h"
+#include "IProcessControl.h"
 
 class ProcessDetailsDialog : public QDialog {
     Q_OBJECT
@@ -14,32 +16,18 @@ class ProcessDetailsDialog : public QDialog {
 public:
     explicit ProcessDetailsDialog(QWidget* parent = nullptr);
     void setProcessDetails(const ProcessDetails& details);
+    void setProcessControl(IProcessControl* processControl);
 
 private:
     void setupUI();
+    void setupStyles();
 
     ProcessDetails _details;
-
-    // Основная информация
-    QLabel* _pidLabel;
-    QLabel* _nameLabel;
-    QLabel* _pathLabel;
-    QLabel* _parentPIDLabel;
-
-    // Ресурсы
-    QLabel* _cpuLabel;
-    QLabel* _memoryLabel;
-    QLabel* _workingSetLabel;
-
-    // Системная информация
-    QLabel* _threadCountLabel;
-    QLabel* _startTimeLabel;
-    QLabel* _childProcessCountLabel;
-    QLabel* _handleCountLabel;
+    IProcessControl* _processControl;
 
     // Виджеты
-    QScrollArea* _scrollArea;
-    QWidget* _scrollWidget;
-    QFormLayout* _formLayout;
+    QLabel* _processIconLabel;
+    QLabel* _processNameLabel;
+    QTreeWidget* _detailsTree;
     QDialogButtonBox* _buttonBox;
 };

@@ -18,5 +18,7 @@ private:
     quint32 getChildProcessCount(quint32 pid, const QList<ProcessInfo>& allProcesses);
     quint32 getHandleCount(quint32 pid);
     int getPriority(quint32 pid);
+    QString getProcessUserName(quint32 pid);
+    QString getProcessPriorityClass(quint32 pid);
 };
 

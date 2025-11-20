@@ -5,6 +5,7 @@
 #include <WindowsNetworkMonitor.h>
 #include <WindowsDiskMonitor.h>
 #include <WindowsServiceMonitor.h>
+#include <QDebug>
 
 DataUpdater::DataUpdater(quint32 updateIntervalMs)
 {
@@ -25,7 +26,8 @@ void DataUpdater::update() {
     data.disks = _diskMonitor->getDiskInfo();
     data.gpus = _gpuMonitor->getGPUInfo();
     data.networkInterfaces = _networkMonitor->getNetworkInfo();
-
+    static int i = 0;
+    qDebug() << "Данные готовы " << i++;
     emit dataReady(data);
 }
 

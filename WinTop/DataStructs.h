@@ -56,6 +56,9 @@ struct ProcessDetails
 	QDateTime startTime;
 	quint32 childProcessesCount = 0;
 	quint32 handleCount = 0;
+
+	QString userName;
+	QString priorityClass;
 };
 
 struct DiskInfo 
@@ -128,14 +131,3 @@ struct ServiceInfo {
 	QString description;
 	ServiceStatus status;
 };
-//
-//enum AutoStatus { asEnabled, asDisabled };
-//inline const char* AutoStatusString[]{ "Включено", "Отключено" };
-//
-//struct AutoStartInfo {
-//	QString name;
-//	QString publisher;
-//	AutoStatus status;
-//	QString command; 
-//	QString location; 
-//};

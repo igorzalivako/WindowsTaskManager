@@ -85,6 +85,7 @@ private:
 
     // Контекстное меню процесса
     qint32 _selectedProcessID;
+    QString _selectedProcessName;
     QMenu* _processContextMenu;
     QAction* _killProcessAction;
     QAction* _showDetailsAction;

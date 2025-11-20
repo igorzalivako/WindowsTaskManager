@@ -14,7 +14,7 @@ WinTop::WinTop(QWidget *parent)
     m_serviceControl = std::make_unique<WindowsServiceControl>();
     _processControl = std::make_unique<WindowsProcessControl>();
     _treeBuilder = std::make_unique<WindowsProcessTreeBuilder>();
-    // Создаём поток
+
     m_dataThread = new QThread();
     m_dataUpdater = new DataUpdater(1000);
     m_dataUpdater->moveToThread(m_dataThread);
@@ -96,6 +96,7 @@ void WinTop::onProcessContextMenu(const QPoint& pos)
     }
 
     _selectedProcessID = proc.pid;
+    _selectedProcessName = proc.name;
 
     _processContextMenu->exec(_processTableView->viewport()->mapToGlobal(pos));
 }
@@ -112,12 +113,18 @@ void WinTop::onTreeContextMenu(const QPoint& pos) {
         return;
     }
 
-    _selectedProcessID = pid; // используем общий PID
+    _selectedProcessID = pid;
+    for (const auto& proc : _lastProcesses)
+    {
+        if (proc.pid == pid)
+        {
+            _selectedProcessName = proc.name;
+        }
+    }
 
     _processContextMenu->exec(_processTreeView->viewport()->mapToGlobal(pos));
 }
 
-// Вспомогательный метод
 quint32 WinTop::getPIDFromTreeIndex(const QModelIndex& index) {
     if (!index.isValid()) {
         return 0;
@@ -187,6 +194,7 @@ void WinTop::setUpPerformanceTab()
     _performanceTree = new QTreeWidget();
     _performanceTree->setHeaderHidden(true);
     _performanceTree->setMaximumWidth(150);
+    _performanceTree->setMinimumWidth(150);
 
     auto* cpuItem = new QTreeWidgetItem(_performanceTree);
     cpuItem->setText(0, "ЦП");
@@ -298,7 +306,7 @@ void WinTop::setUpServicesTab()
     // Настройка таблицы
     m_servicesTableView->setAlternatingRowColors(true);
     m_servicesTableView->setSortingEnabled(true);
-    m_servicesTableView->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeMode::Stretch);
+    m_servicesTableView->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeMode::Interactive);
 
     // === Контекстное меню для служб ===
     m_serviceContextMenu = new QMenu(this);
@@ -800,14 +808,13 @@ void WinTop::killSelectedProcesses()
     if (_selectedProcessID != 0) {
         QMessageBox::StandardButton reply;
         
-        QString procName;
+        QString procName = _selectedProcessName;
         QModelIndexList selected = _processTableView->selectionModel()->selectedRows();
         if (!selected.isEmpty()) {
             QModelIndex proxyIndex = selected.first();
             QModelIndex sourceIndex = _proxyModel->mapToSource(proxyIndex);
             procName = _processModel->getProcessByRow(sourceIndex.row()).name;
         }
-        procName = "N/A";
 
         reply = QMessageBox::question(this, "Подтверждение",
             QString("Завершить процесс %1 (PID: %2)?").arg(procName).arg(_selectedProcessID),
@@ -838,6 +845,7 @@ void WinTop::showProcessDetailsDialog(quint32 pid) {
 
     // Создаём и показываем диалог
     ProcessDetailsDialog dialog(this);
+    dialog.setProcessControl(_processControl.get());
     dialog.setProcessDetails(details);
     dialog.exec();
 }
@@ -865,10 +873,9 @@ void WinTop::onDataReady(const UpdateData& data)
     _lastProcesses = data.processes;
     _lastServices = data.services;
     _lastNetworkInterfaces = data.networkInterfaces;
-    // Обновляем UI (только UI!)
     // Обновляем таблицу
     if (_processModel && (currentWidget == _processesTab)) {
-        _processModel->updateData(data.processes);
+        _processModel->updateDataPartial(data.processes);
     }
 
     if (_processTreeModel && (currentWidget == _treeTab)) {
@@ -881,6 +888,8 @@ void WinTop::onDataReady(const UpdateData& data)
 
     // Обновляем вкладку производительности
     updatePerformanceTab(data.systemInfo, data.disks, data.networkInterfaces, data.gpus);
+    static int i = 0;
+    qDebug() << "Данные ВЫВЕДЕНЫ " << i++;
 }
 
 QStringList WinTop::getExpandedItems(QTreeWidget* tree) {

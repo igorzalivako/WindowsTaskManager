@@ -64,6 +64,9 @@ ProcessDetails WindowsProcessControl::getProcessDetails(quint32 pid, const QList
     details.threadCount = getThreadCount(pid);
     details.startTime = getStartTime(pid);
     details.childProcessesCount = getChildProcessCount(pid, processes);
+    details.userName = getProcessUserName(pid);
+    details.priorityClass = getProcessPriorityClass(pid);
+    
 
     details.handleCount = getHandleCount(pid);
 
@@ -284,6 +287,59 @@ int WindowsProcessControl::getPriority(quint32 pid) {
     if (h_proc) {
         int priority_class = GetPriorityClass(h_proc);
         priority = priority_class;
+        CloseHandle(h_proc);
+    }
+    return priority;
+}
+
+QString WindowsProcessControl::getProcessUserName(quint32 pid) {
+    QString userName = "N/A";
+    HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+    if (h_proc) {
+        HANDLE h_token = nullptr;
+        if (OpenProcessToken(h_proc, TOKEN_QUERY, &h_token)) {
+            DWORD size = 0;
+            GetTokenInformation(h_token, TokenUser, nullptr, 0, &size);
+            if (size > 0) {
+                auto* buffer = (PTOKEN_USER)malloc(size);
+                if (buffer) {
+                    if (GetTokenInformation(h_token, TokenUser, buffer, size, &size)) {
+                        SID_NAME_USE sid_use;
+                        wchar_t name[256];
+                        wchar_t domain[256];
+                        DWORD name_len = 256;
+                        DWORD domain_len = 256;
+                        if (LookupAccountSidW(nullptr, buffer->User.Sid, name, &name_len, domain, &domain_len, &sid_use)) {
+                            userName = QString::fromWCharArray(name);
+                        }
+                    }
+                    free(buffer);
+                }
+            }
+            CloseHandle(h_token);
+        }
+        CloseHandle(h_proc);
+    }
+    return userName;
+}
+
+QString WindowsProcessControl::getProcessPriorityClass(quint32 pid) {
+    QString priority = "N/A";
+    HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+    if (h_proc) {
+        DWORD priority_class = GetPriorityClass(h_proc);
+        if (priority_class == NORMAL_PRIORITY_CLASS) {
+            priority = "Обычный";
+        }
+        else if (priority_class == HIGH_PRIORITY_CLASS) {
+            priority = "Высокий";
+        }
+        else if (priority_class == IDLE_PRIORITY_CLASS) {
+            priority = "Низкий";
+        }
+        else if (priority_class == REALTIME_PRIORITY_CLASS) {
+            priority = "Реального времени";
+        }
         CloseHandle(h_proc);
     }
     return priority;

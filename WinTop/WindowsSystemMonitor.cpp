@@ -160,22 +160,26 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
         info.name = QString::fromWCharArray(entry.szExeFile);
 
         HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
-        if (h_proc) {
+        if (h_proc) 
+        {
             // Memory
             PROCESS_MEMORY_COUNTERS_EX pmc;
-            if (GetProcessMemoryInfo(h_proc, (PROCESS_MEMORY_COUNTERS*) &pmc, sizeof(pmc))) {
+            if (GetProcessMemoryInfo(h_proc, (PROCESS_MEMORY_COUNTERS*) &pmc, sizeof(pmc))) 
+            {
                 info.memoryUsage = pmc.PrivateUsage;
                 info.workingSetSize = pmc.WorkingSetSize;
             }
 
             // CPU Time
             ProcessTimeInfo time_info = {};
-            if (calculateProcessCpuUsage(h_proc, time_info, pid)) {
+            if (calculateProcessCpuUsage(h_proc, time_info, pid)) 
+            {
                 current_process_times[pid] = time_info;
 
                 // Если есть предыдущие данные, вычисляем загрузку
                 auto it = _processTimes.find(pid);
-                if (it != _processTimes.end() && _lastUpdateTime != 0) {
+                if (it != _processTimes.end() && _lastUpdateTime != 0) 
+                {
                     qint64 elapsed = current_time - _lastUpdateTime;
                     info.cpuUsage = computeCpuPercentage(it->second, time_info, elapsed);
                 }
@@ -185,7 +189,8 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
         }
 
         // === Добавляем информацию о диске ===
-        if (processDiskInfo.contains(pid)) {
+        if (processDiskInfo.contains(pid)) 
+        {
             const auto& diskInfo = processDiskInfo[pid];
             info.diskReadBytes = diskInfo.bytesRead;
             info.diskWriteBytes = diskInfo.bytesWritten;
@@ -333,17 +338,21 @@ quint32 WindowsSystemMonitor::getCacheSizeKB(int level) {
     return totalCacheSizeKB / 1024;
 }
 
-QList<double> WindowsSystemMonitor::getCpuCoreUsage() {
+QList<double> WindowsSystemMonitor::getCpuCoreUsage() 
+{
     PdhCollectQueryData(m_cpuCoreQuery);
     QList<double> coreUsage;
 
     quint32 logicalCount = getLogicalProcessorCount();
-    for (quint32 i = 0; i < logicalCount && i < m_cpuCoreCounters.size(); i++) {
+    for (quint32 i = 0; i < logicalCount && i < m_cpuCoreCounters.size(); i++) 
+    {
         PDH_FMT_COUNTERVALUE value;
-        if (PdhGetFormattedCounterValue(m_cpuCoreCounters[i], PDH_FMT_DOUBLE, NULL, &value) == ERROR_SUCCESS) {
+        if (PdhGetFormattedCounterValue(m_cpuCoreCounters[i], PDH_FMT_DOUBLE, NULL, &value) == ERROR_SUCCESS) 
+        {
             coreUsage.append(value.doubleValue);
         }
-        else {
+        else 
+        {
             coreUsage.append(0.0);
         }
     }
@@ -351,21 +360,24 @@ QList<double> WindowsSystemMonitor::getCpuCoreUsage() {
     return coreUsage;
 }
 
-bool WindowsSystemMonitor::initCpuCoreCounters() {
-    if (PdhOpenQuery(NULL, 0, &m_cpuCoreQuery) != ERROR_SUCCESS) {
+bool WindowsSystemMonitor::initCpuCoreCounters() 
+{
+    if (PdhOpenQuery(NULL, 0, &m_cpuCoreQuery) != ERROR_SUCCESS) 
+    {
         return false;
     }
 
     quint32 logicalCount = getLogicalProcessorCount();
-    for (quint32 i = 0; i < logicalCount; i++) {
+    for (quint32 i = 0; i < logicalCount; i++) 
+    {
         QString counterPath = QString("\\Processor(%1)\\% Processor Time").arg(i);
         PDH_HCOUNTER counter;
-        if (PdhAddEnglishCounterW(m_cpuCoreQuery, reinterpret_cast<LPCWSTR>(counterPath.utf16()), 0, &counter) == ERROR_SUCCESS) {
+        if (PdhAddEnglishCounterW(m_cpuCoreQuery, reinterpret_cast<LPCWSTR>(counterPath.utf16()), 0, &counter) == ERROR_SUCCESS) 
+        {
             m_cpuCoreCounters.append(counter);
         }
     }
 
-        // Collect initial data (нужно 2 раза для получения данных)
     PdhCollectQueryData(m_cpuCoreQuery);
     
     return true;

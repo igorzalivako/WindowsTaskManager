@@ -111,3 +111,84 @@ void ProcessTableModel::updateData(const QList<ProcessInfo>& data) {
     _iconCache.clear();
     endResetModel();
 }
+
+void ProcessTableModel::updateDataPartial(const QList<ProcessInfo>& newData) {
+    if (_processes.isEmpty()) {
+        // Первый запуск — просто заполняем
+        updateData(newData);
+        return;
+    }
+
+    // Создаём мапу по PID для быстрого поиска
+    QHash<quint32, ProcessInfo> newMap;
+    for (const auto& proc : newData) {
+        newMap[proc.pid] = proc;
+    }
+
+    // Обновляем существующие
+    for (int i = 0; i < _processes.size(); ++i) {
+        quint32 pid = _processes[i].pid;
+        if (newMap.contains(pid)) {
+            // Проверим, изменились ли данные
+            const ProcessInfo& newProc = newMap[pid];
+            bool changed = false;
+
+            if (_processes[i].cpuUsage != newProc.cpuUsage ||
+                _processes[i].memoryUsage != newProc.memoryUsage ||
+                _processes[i].name != newProc.name) {
+                changed = true;
+            }
+
+            if (changed) {
+                _processes[i] = newProc;
+                emit dataChanged(index(i, 0), index(i, columnCount() - 1));
+            }
+        }
+    }
+
+    // Находим новые процессы
+    QSet<quint32> oldPids;
+    for (const auto& proc : _processes) {
+        oldPids.insert(proc.pid);
+    }
+
+    QList<ProcessInfo> newProcesses;
+    for (const auto& proc : newData) {
+        if (!oldPids.contains(proc.pid)) {
+            newProcesses.append(proc);
+        }
+    }
+
+    // Добавляем новые
+    if (!newProcesses.isEmpty()) {
+        int oldSize = _processes.size();
+        beginInsertRows(QModelIndex(), oldSize, oldSize + newProcesses.size() - 1);
+        _processes.append(newProcesses);
+        endInsertRows();
+    }
+
+    // Находим удалённые
+    QSet<quint32> newPids;
+    for (const auto& proc : newData) {
+        newPids.insert(proc.pid);
+    }
+
+    QList<int> removedIndices;
+    for (int i = _processes.size() - 1; i >= 0; --i) {
+        if (!newPids.contains(_processes[i].pid)) {
+            removedIndices.append(i);
+        }
+    }
+
+    // Удаляем удалённые
+    if (!removedIndices.isEmpty()) {
+        // Сортируем индексы по убыванию
+        std::sort(removedIndices.begin(), removedIndices.end(), std::greater<int>());
+
+        for (int idx : removedIndices) {
+            beginRemoveRows(QModelIndex(), idx, idx);
+            _processes.removeAt(idx);
+            endRemoveRows();
+        }
+    }
+}

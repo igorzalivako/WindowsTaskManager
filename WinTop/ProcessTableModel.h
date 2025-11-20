@@ -19,6 +19,8 @@ public:
 
     void setProcessControl(IProcessControl* controller);
 
+    void updateDataPartial(const QList<ProcessInfo>& newData);
+
     void updateData(const QList<ProcessInfo>& data);
 
 private:
