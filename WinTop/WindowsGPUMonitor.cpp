@@ -18,15 +18,18 @@ QMap<quint32, ProcessGPUInfo> WindowsGPUMonitor::getProcessGPUInfo()
     
     unsigned int deviceCount = 0;
     nvmlReturn_t result = nvmlDeviceGetCount(&deviceCount);
-    if (result != NVML_SUCCESS || deviceCount == 0) {
+    if (result != NVML_SUCCESS || deviceCount == 0) 
+    {
         nvmlShutdown();
         return gpusPerProcessInfo;
     }
 
-    for (unsigned int i = 0; i < deviceCount; i++) {
+    for (unsigned int i = 0; i < deviceCount; i++) 
+    {
         nvmlDevice_t device;
         result = nvmlDeviceGetHandleByIndex(i, &device);
-        if (result == NVML_SUCCESS) {
+        if (result == NVML_SUCCESS) 
+        {
             ProcessGPUInfo gpuProcessInfo;
 
             nvmlProcessUtilizationSample_t* utilization;
@@ -48,57 +51,67 @@ QMap<quint32, ProcessGPUInfo> WindowsGPUMonitor::getProcessGPUInfo()
     return gpusPerProcessInfo;
 }
 
-QList<GPUInfo> WindowsGPUMonitor::getNvidiaGPUInfo() {
+QList<GPUInfo> WindowsGPUMonitor::getNvidiaGPUInfo() 
+{
     QList<GPUInfo> gpusInfo;
 
     unsigned int deviceCount = 0;
     nvmlReturn_t result = nvmlDeviceGetCount(&deviceCount);
-    if (result != NVML_SUCCESS || deviceCount == 0) {
+    if (result != NVML_SUCCESS || deviceCount == 0) 
+    {
         nvmlShutdown();
         return gpusInfo;
     }
 
-    for (unsigned int i = 0; i < deviceCount; i++) {
+    for (unsigned int i = 0; i < deviceCount; i++) 
+    {
         nvmlDevice_t device;
         result = nvmlDeviceGetHandleByIndex(i, &device);
-        if (result == NVML_SUCCESS) {
+        if (result == NVML_SUCCESS) 
+        {
             GPUInfo gpu;
             gpu.vendor = "NVIDIA";
 
             // Получаем имя устройства
             char name[NVML_DEVICE_NAME_V2_BUFFER_SIZE];
-            if (nvmlDeviceGetName(device, name, sizeof(name)) == NVML_SUCCESS) {
+            if (nvmlDeviceGetName(device, name, sizeof(name)) == NVML_SUCCESS) 
+            {
                 gpu.name = name;
             }
 
             // Использование GPU
             nvmlUtilization_t utilization;
-            if (nvmlDeviceGetUtilizationRates(device, &utilization) == NVML_SUCCESS) {
+            if (nvmlDeviceGetUtilizationRates(device, &utilization) == NVML_SUCCESS) 
+            {
                 gpu.usage = utilization.gpu;
             }
 
             // Информация о памяти
             nvmlMemory_t memory;
-            if (nvmlDeviceGetMemoryInfo(device, &memory) == NVML_SUCCESS) {
+            if (nvmlDeviceGetMemoryInfo(device, &memory) == NVML_SUCCESS) 
+            {
                 gpu.totalMemoryBytes = memory.total;
                 gpu.usedMemoryBytes = memory.used;
             }
 
             // Температура
             unsigned int temp;
-            if (nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &temp) == NVML_SUCCESS) {
+            if (nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &temp) == NVML_SUCCESS) 
+            {
                 gpu.temperatureCelsius = temp;
             }
 
-            // Использование энергии
+            // Использование мощности
             unsigned int power;
-            if (nvmlDeviceGetPowerUsage(device, &power) == NVML_SUCCESS) {
+            if (nvmlDeviceGetPowerUsage(device, &power) == NVML_SUCCESS) 
+            {
                 gpu.powerUsage = power / 1000; // В ватты
             }
 
             // Версия драйвера
             char driver[80];
-            if (nvmlSystemGetDriverVersion(driver, sizeof(driver)) == NVML_SUCCESS) {
+            if (nvmlSystemGetDriverVersion(driver, sizeof(driver)) == NVML_SUCCESS) 
+            {
                 gpu.driverVersion = driver;
             }
 
@@ -124,8 +137,9 @@ void __stdcall ADL_Main_Memory_Free(void* lpBuffer)
     }
 }
 
-bool WindowsGPUMonitor::initializeADL() {
-    HINSTANCE hDLL;		// Handle to DLL
+bool WindowsGPUMonitor::initializeADL() 
+{
+    HINSTANCE hDLL;		
     hDLL = LoadLibrary(L"atiadlxx.dll");
     if (hDLL == nullptr)
     {
@@ -158,7 +172,7 @@ bool WindowsGPUMonitor::initializeNVML()
     return result == NVML_SUCCESS;
 }
 
-int WindowsGPUMonitor::GetAdapterActiveStatus(int adapterId, int& active)
+int WindowsGPUMonitor::GetAdapterActiveStatus(int adapterId, int& active) const
 {
     active = 0;
 
@@ -168,7 +182,7 @@ int WindowsGPUMonitor::GetAdapterActiveStatus(int adapterId, int& active)
 }
 
 #pragma runtime_checks("s", off)
-int WindowsGPUMonitor::GetUsedMemory(int adapterId)
+int WindowsGPUMonitor::GetUsedMemory(int adapterId) const
 {
     int* vramUsage = new int;
     int result = ADL2_Adapter_VRAMUsage_Get(context, adapterId, vramUsage);
@@ -176,7 +190,8 @@ int WindowsGPUMonitor::GetUsedMemory(int adapterId)
 }
 #pragma runtime_checks("s", on)
 
-QList<GPUInfo> WindowsGPUMonitor::getAMDGPUInfo() {
+QList<GPUInfo> WindowsGPUMonitor::getAMDGPUInfo() 
+{
     QList<GPUInfo> gpus;
 
     int  numberAdapters;
@@ -188,7 +203,8 @@ QList<GPUInfo> WindowsGPUMonitor::getAMDGPUInfo() {
 
     int active = 0;
 
-    for (int i = 0; i < numberAdapters; i++) {
+    for (int i = 0; i < numberAdapters; i++) 
+    {
         if (ADL_OK == GetAdapterActiveStatus(i, active))
         {
             GPUInfo gpuInfo;
@@ -196,19 +212,21 @@ QList<GPUInfo> WindowsGPUMonitor::getAMDGPUInfo() {
             {
                 int numModes;
                 ADLMode* adlMode;
-
+                // Комбинация параметров вывода видеоадаптера на данный дисплей. Проверяется для того, чтобы исключить виртуальные адаптеры и не выводить информацию о них
                 if (ADL_OK == ADL2_Display_Modes_Get(context, i, -1, &numModes, &adlMode))
                 {
-                    if (numModes == 1)
+                    if (numModes != 0)
                     {
-                        printf("Adapter %d resolution is %d by %d\n", i, adlMode->iXRes, adlMode->iYRes);
                         AdapterInfo** info = new AdapterInfo * ();
+                        // Получение статической информации об адаптере (для получения имени)
                         int result = ADL2_Adapter_AdapterInfo_Get(context, info);
                         ADLPMLogDataOutput* pmData = new ADLPMLogDataOutput();
+                        // Получение информации от датчиков производительности (динамические параметры)
                         result = ADL2_New_QueryPMLogDataGet(context, i, pmData);
                         ADLMemoryInfo2* meminfo = new ADLMemoryInfo2;
+                        // Возвращает структуру, хранящую объем памяти видеоадаптера
                         result = ADL2_Adapter_MemoryInfo_Get(context, i, meminfo);
-
+                       
                         gpuInfo.name = (*info)->strAdapterName;
                         gpuInfo.totalMemoryBytes = meminfo->iMemorySize;
                         gpuInfo.usage = pmData->sensors[ADL_PMLOG_GFX_CURRENT].value;

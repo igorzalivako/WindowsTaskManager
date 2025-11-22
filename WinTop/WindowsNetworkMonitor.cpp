@@ -5,20 +5,23 @@
 #include <windows.h>
 #include <iphlpapi.h>
 
-WindowsNetworkMonitor::WindowsNetworkMonitor() {
+WindowsNetworkMonitor::WindowsNetworkMonitor() 
+{
     initNetworkCounters();
 }
 
-WindowsNetworkMonitor::~WindowsNetworkMonitor() {
-    // nothing to clean up
+WindowsNetworkMonitor::~WindowsNetworkMonitor() 
+{
 }
 
-bool WindowsNetworkMonitor::initNetworkCounters() {
+bool WindowsNetworkMonitor::initNetworkCounters() 
+{
     _lastUpdateTime = QDateTime::currentMSecsSinceEpoch();
     return true;
 }
 
-QList<NetworkInterfaceInfo> WindowsNetworkMonitor::getNetworkInfo() {
+QList<NetworkInterfaceInfo> WindowsNetworkMonitor::getNetworkInfo() 
+{
     QList<NetworkInterfaceInfo> interfaces;
 
     qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
@@ -31,9 +34,11 @@ QList<NetworkInterfaceInfo> WindowsNetworkMonitor::getNetworkInfo() {
     DWORD dwRetVal = 0;
 
     dwRetVal = GetIfTable(pIfTable, &dwSize, FALSE);
-    if (dwRetVal == ERROR_INSUFFICIENT_BUFFER) {
+    if (dwRetVal == ERROR_INSUFFICIENT_BUFFER) 
+    {
         pIfTable = (MIB_IFTABLE*)malloc(dwSize);
-        if (!pIfTable) {
+        if (!pIfTable) 
+        {
             return interfaces;
         }
 
@@ -41,11 +46,13 @@ QList<NetworkInterfaceInfo> WindowsNetworkMonitor::getNetworkInfo() {
     }
 
     if (dwRetVal == NO_ERROR) {
-        for (DWORD i = 0; i < pIfTable->dwNumEntries; i++) {
+        for (DWORD i = 0; i < pIfTable->dwNumEntries; i++) 
+        {
             MIB_IFROW& row = pIfTable->table[i];
 
-            // Пропускаем loopback и неактивные интерфейсы
-            if (row.dwType == IF_TYPE_SOFTWARE_LOOPBACK) {
+            // Пропускаем loopback
+            if (row.dwType == IF_TYPE_SOFTWARE_LOOPBACK) 
+            {
                 continue;
             }
 
@@ -53,7 +60,8 @@ QList<NetworkInterfaceInfo> WindowsNetworkMonitor::getNetworkInfo() {
             bool isEthernet = (row.dwType == IF_TYPE_ETHERNET_CSMACD);
             bool isWireless = (row.dwType == IF_TYPE_IEEE80211);
 
-            if (!isEthernet && !isWireless) {
+            if (!isEthernet && !isWireless) 
+            {
                 continue;
             }
 
@@ -64,14 +72,14 @@ QList<NetworkInterfaceInfo> WindowsNetworkMonitor::getNetworkInfo() {
             info.bytesSent = row.dwOutOctets;
             info.packetsReceived = row.dwInUcastPkts;
             info.packetsSent = row.dwOutUcastPkts;
-            info.isUp = (row.dwOperStatus == IF_OPER_STATUS_CONNECTED);
 
             // Вычисляем скорость
             QString key = QString::number(row.dwIndex);
             quint64 lastReceived = _lastBytesReceived.value(key, 0);
             quint64 lastSent = _lastBytesSent.value(key, 0);
 
-            if (elapsedSec > 0) {
+            if (elapsedSec > 0) 
+            {
                 info.receiveBytesPerSec = (info.bytesReceived - lastReceived) / elapsedSec;
                 info.sendBytesPerSec = (info.bytesSent - lastSent) / elapsedSec;
             }
@@ -83,7 +91,8 @@ QList<NetworkInterfaceInfo> WindowsNetworkMonitor::getNetworkInfo() {
         }
     }
 
-    if (pIfTable) {
+    if (pIfTable) 
+    {
         free(pIfTable);
     }
 

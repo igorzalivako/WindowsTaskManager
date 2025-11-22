@@ -41,13 +41,13 @@
 #include "IServiceControl.h"
 #include <DataUpdater.h>
 
-class WinTop : public QMainWindow
+class WinTaskManager : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    WinTop(QWidget *parent = nullptr);
-    ~WinTop();
+    WinTaskManager(QWidget *parent = nullptr);
+    ~WinTaskManager();
 
 private slots:
     void onProcessContextMenu(const QPoint& pos);
@@ -64,9 +64,6 @@ private:
     std::unique_ptr<IServiceControl> m_serviceControl;
     std::unique_ptr<IProcessControl> _processControl;
     std::unique_ptr<IProcessTreeBuilder> _treeBuilder;
-    //std::unique_ptr<IAutoStartMonitor> m_autoStartMonitor;
-    //std::unique_ptr<IAutoStartControl> m_autoStartControl;
-    //QTimer _updateTimer;
     QList<ProcessInfo> _lastProcesses;
     QList<NetworkInterfaceInfo> _lastNetworkInterfaces;
     QList<ServiceInfo> _lastServices;
@@ -75,7 +72,7 @@ private:
     QWidget* _overviewTab;
     QWidget* _processesTab;
 
-    // Processes
+    // Процессы
     QLineEdit* _filterLineEdit;
     QTableView* _processTableView;
     
@@ -150,34 +147,19 @@ private:
     QValueAxis* _memoryAxisY;
     QWidget* _memoryInfoWidget;
 
-    // === Новая вкладка "Службы" ===
-    QWidget* m_servicesTab;
-    QTableView* m_servicesTableView;
-    ServiceTableModel* m_servicesModel;
+    // вкладка "Службы"
+    QWidget* _servicesTab;
+    QTableView* _servicesTableView;
+    ServiceTableModel* _servicesModel;
     QSortFilterProxyModel* _servicesProxyModel;
 
     // Меню управления службой
-    QMenu* m_serviceContextMenu;
-    QAction* m_startServiceAction;
-    QAction* m_stopServiceAction;
+    QMenu* _serviceContextMenu;
+    QAction* _startServiceAction;
+    QAction* _stopServiceAction;
 
     // Выбранная служба
-    QString m_selectedServiceName;
-
-    //// === Новая вкладка "Автозагрузка" ===
-    //QWidget* m_autoStartTab;
-    //QTableView* m_autoStartTableView;
-    //AutoStartTableModel* m_autoStartModel;
-
-    //// Меню управления автозагрузкой
-    //QMenu* m_autoStartContextMenu;
-    //QAction* m_enableAutoStartAction;
-    //QAction* m_disableAutoStartAction;
-
-    //// Выбранная запись автозагрузки
-    //QString m_selectedAutoStartName;
-    //QString m_selectedAutoStartCommand;
-    //bool m_selectedAutoStartIsUser;
+    QString _selectedServiceName;
 
     void setUpProcessInfoContextMenu();
     void setUpProcessTree();
@@ -188,38 +170,37 @@ private:
     void setUpGPUPerformanceTab();
     void setUpCPUPerformanceTab();
     void setUpMemoryPerformanceTab();
-    //void setUpAutoStartTab();
     void updateNetworkAdapterList(const QList<NetworkInterfaceInfo> & networkInfo);
     void updatePerformanceTab(const SystemInfo& systemInfo, const DisksInfo& diskInfo, const QList<NetworkInterfaceInfo> & networkInfo, const QList<GPUInfo> & gpuInfo);
     quint32 getPIDFromTreeIndex(const QModelIndex& index);
 
-    // === Новые поля для информации под графиками ===
+    // поля для информации под графиками
     // Диск
-    QTreeWidget* _diskInfoTree; // вместо QLabel
-    QScrollArea* _diskInfoScroll; // для прокрутки
+    QTreeWidget* _diskInfoTree; 
+    QScrollArea* _diskInfoScroll; 
 
     // Сеть
-    QTreeWidget* _networkInfoTree; // вместо QLabel
-    QScrollArea* _networkInfoScroll; // для прокрутки
+    QTreeWidget* _networkInfoTree; 
+    QScrollArea* _networkInfoScroll; 
 
     // GPU
-    QTreeWidget* _gpuInfoTree; // вместо QLabel
-    QScrollArea* _gpuInfoScroll; // для прокрутки
+    QTreeWidget* _gpuInfoTree; 
+    QScrollArea* _gpuInfoScroll; 
 
     // CPU
-    QTreeWidget* _cpuInfoTree; // вместо QLabel
-    QScrollArea* _cpuInfoScroll; // для прокрутки
+    QTreeWidget* _cpuInfoTree;
+    QScrollArea* _cpuInfoScroll; 
 
     // Память
-    QTreeWidget* _memoryInfoTree; // вместо QLabel
-    QScrollArea* _memoryInfoScroll; // для прокрутки
+    QTreeWidget* _memoryInfoTree; 
+    QScrollArea* _memoryInfoScroll;
 
-    // Методы для сохранения/восстановления состояния
+    // Методы для сохранения/восстановления состояния дерева
     QStringList getExpandedItems(QTreeWidget* tree);
     void setExpandedItems(QTreeWidget* tree, const QStringList& items);
 
     void setupStyles();
 
-    QThread* m_dataThread;
-    DataUpdater* m_dataUpdater;
+    QThread* _dataThread;
+    DataUpdater* _dataUpdater;
 };

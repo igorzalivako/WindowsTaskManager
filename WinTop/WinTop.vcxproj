@@ -113,7 +113,7 @@
   <ItemGroup>
     <QtRcc Include="WinTop.qrc" />
     <QtUic Include="WinTop.ui" />
-    <QtMoc Include="WinTop.h" />
+    <QtMoc Include="WinTaskManager.h" />
     <ClCompile Include="DataUpdater.cpp" />
     <ClCompile Include="ProcessDetailsDialog.cpp" />
     <ClCompile Include="ProcessTableModel.cpp" />
@@ -129,7 +129,7 @@
     <ClCompile Include="WindowsServiceControl.cpp" />
     <ClCompile Include="WIndowsServiceMonitor.cpp" />
     <ClCompile Include="WindowsSystemMonitor.cpp" />
-    <ClCompile Include="WinTop.cpp" />
+    <ClCompile Include="WinTaskManager.cpp" />
     <ClCompile Include="main.cpp" />
     <None Include="WinTop.ico" />
     <ResourceCompile Include="WinTop.rc" />

@@ -34,7 +34,7 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="WinTop.cpp">
+    <ClCompile Include="WinTaskManager.cpp">
       <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp" />
@@ -90,7 +90,7 @@
     </QtUic>
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="WinTop.h">
+    <QtMoc Include="WinTaskManager.h">
       <Filter>ui</Filter>
     </QtMoc>
     <QtMoc Include="ProcessTableModel.h">

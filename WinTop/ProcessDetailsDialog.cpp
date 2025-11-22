@@ -35,7 +35,7 @@ void ProcessDetailsDialog::setupUI()
     // Дерево с информацией
     _detailsTree = new QTreeWidget();
     _detailsTree->setHeaderHidden(true);
-    _detailsTree->setRootIsDecorated(true); // показываем иконки группы
+    _detailsTree->setRootIsDecorated(true);
     _detailsTree->setAlternatingRowColors(true);
 
     mainLayout->addWidget(_detailsTree);
@@ -75,11 +75,13 @@ void ProcessDetailsDialog::setupStyles()
     setStyleSheet(style);
 }
 
-void ProcessDetailsDialog::setProcessDetails(const ProcessDetails& details) {
+void ProcessDetailsDialog::setProcessDetails(const ProcessDetails& details) 
+{
     _details = details;
 
     // Устанавливаем иконку и имя
-    if (_processControl) {
+    if (_processControl) 
+    {
         QIcon icon = _processControl->getProcessIcon(details.pid);
         _processIconLabel->setPixmap(icon.pixmap(20, 20));
     }
@@ -88,7 +90,7 @@ void ProcessDetailsDialog::setProcessDetails(const ProcessDetails& details) {
     // Заполняем дерево
     _detailsTree->clear();
 
-    // === Основная информация ===
+    // Основная информация
     auto* mainGroup = new QTreeWidgetItem(_detailsTree);
     mainGroup->setText(0, "Основная информация");
     mainGroup->setExpanded(true);
@@ -105,7 +107,7 @@ void ProcessDetailsDialog::setProcessDetails(const ProcessDetails& details) {
     auto* parentItem = new QTreeWidgetItem(mainGroup);
     parentItem->setText(0, QString("Родительский PID: %1").arg(details.parentPID));
 
-    // === Ресурсы ===
+    // Ресурсы
     auto* resourcesGroup = new QTreeWidgetItem(_detailsTree);
     resourcesGroup->setText(0, "Ресурсы");
     resourcesGroup->setExpanded(true);
@@ -119,7 +121,7 @@ void ProcessDetailsDialog::setProcessDetails(const ProcessDetails& details) {
     auto* wsItem = new QTreeWidgetItem(resourcesGroup);
     wsItem->setText(0, QString("Рабочий набор: %1 МБ").arg(details.workingSetSize / 1024 / 1024));
 
-    // === Системная информация ===
+    // Системная информация 
     auto* systemGroup = new QTreeWidgetItem(_detailsTree);
     systemGroup->setText(0, "Системная информация");
     systemGroup->setExpanded(true);
@@ -136,7 +138,7 @@ void ProcessDetailsDialog::setProcessDetails(const ProcessDetails& details) {
     auto* handlesItem = new QTreeWidgetItem(systemGroup);
     handlesItem->setText(0, QString("Количество дескрипторов: %1").arg(details.handleCount));
 
-    // === Дополнительная информация ===
+    // Дополнительная информация
     auto* additionalGroup = new QTreeWidgetItem(_detailsTree);
     additionalGroup->setText(0, "Дополнительная информация");
     additionalGroup->setExpanded(true);

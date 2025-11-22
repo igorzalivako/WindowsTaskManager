@@ -15,7 +15,8 @@
 #include "IProcessTreeBuilder.h"
 #include "IServiceControl.h"
 
-struct UpdateData {
+struct UpdateData 
+{
     SystemInfo systemInfo;
     QList<ProcessInfo> processes;
     QList<ServiceInfo> services;
@@ -40,10 +41,10 @@ signals:
     void dataReady(const UpdateData& data);
 
 private:
-    QTimer m_timer;
-    std::unique_ptr<ISystemMonitor> _monitor;
+    QTimer _timer;
+    std::unique_ptr<ISystemMonitor> _systemMonitor;
     std::unique_ptr<IDiskMonitor> _diskMonitor;
     std::unique_ptr<INetworkMonitor> _networkMonitor;
     std::unique_ptr<IGPUMonitor> _gpuMonitor;
-    std::unique_ptr<IServiceMonitor> m_serviceMonitor;
+    std::unique_ptr<IServiceMonitor> _serviceMonitor;
 };

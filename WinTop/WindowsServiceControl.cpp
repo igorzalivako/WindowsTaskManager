@@ -8,14 +8,17 @@ WindowsServiceControl::~WindowsServiceControl()
 {
 }
 
-bool WindowsServiceControl::startService(const QString& serviceName) {
+bool WindowsServiceControl::startService(const QString& serviceName) 
+{
     SC_HANDLE hSCM = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
-    if (!hSCM) {
+    if (!hSCM)
+    {
         return false;
     }
 
     SC_HANDLE hSvc = OpenServiceW(hSCM, reinterpret_cast<LPCWSTR>(serviceName.utf16()), SERVICE_START);
-    if (!hSvc) {
+    if (!hSvc) 
+    {
         CloseServiceHandle(hSCM);
         return false;
     }
@@ -28,14 +31,17 @@ bool WindowsServiceControl::startService(const QString& serviceName) {
     return success;
 }
 
-bool WindowsServiceControl::stopService(const QString& serviceName) {
+bool WindowsServiceControl::stopService(const QString& serviceName)
+{
     SC_HANDLE hSCM = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
-    if (!hSCM) {
+    if (!hSCM)
+    {
         return false;
     }
 
     SC_HANDLE hSvc = OpenServiceW(hSCM, reinterpret_cast<LPCWSTR>(serviceName.utf16()), SERVICE_STOP);
-    if (!hSvc) {
+    if (!hSvc)
+    {
         CloseServiceHandle(hSCM);
         return false;
     }

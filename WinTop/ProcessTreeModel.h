@@ -6,7 +6,8 @@
 #include <IProcessControl.h>
 #include <QHash>
 
-struct ProcessItemRow {
+struct ProcessItemRow 
+{
     QStandardItem* nameItem;
     QStandardItem* pidItem;
     QStandardItem* cpuItem;
@@ -22,7 +23,8 @@ struct ProcessItemRow {
     ProcessItemRow() = default;
 };
 
-class ProcessTreeModel : public QStandardItemModel {
+class ProcessTreeModel : public QStandardItemModel 
+{
     Q_OBJECT
 
 public:

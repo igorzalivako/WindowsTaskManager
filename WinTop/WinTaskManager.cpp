@@ -1,4 +1,4 @@
-﻿#include "WinTop.h"
+﻿#include "WinTaskManager.h"
 #include "WindowsSystemMonitor.h"
 #include "WindowsProcessControl.h"
 #include "WindowsProcessTreeBuilder.h"
@@ -9,29 +9,29 @@
 #include "WindowsServiceControl.h"
 #include "ProcessTableProxyModel.h"
 
-WinTop::WinTop(QWidget *parent)
+WinTaskManager::WinTaskManager(QWidget *parent)
     : QMainWindow(parent)
 {
     m_serviceControl = std::make_unique<WindowsServiceControl>();
     _processControl = std::make_unique<WindowsProcessControl>();
     _treeBuilder = std::make_unique<WindowsProcessTreeBuilder>();
 
-    m_dataThread = new QThread();
-    m_dataUpdater = new DataUpdater(1000);
-    m_dataUpdater->moveToThread(m_dataThread);
-    connect(m_dataThread, &QThread::started, m_dataUpdater, &DataUpdater::update);
-    connect(m_dataUpdater, &DataUpdater::dataReady, this, &WinTop::onDataReady);
+    _dataThread = new QThread();
+    _dataUpdater = new DataUpdater(1000);
+    _dataUpdater->moveToThread(_dataThread);
+    connect(_dataThread, &QThread::started, _dataUpdater, &DataUpdater::update);
+    connect(_dataUpdater, &DataUpdater::dataReady, this, &WinTaskManager::onDataReady);
 
     setupUI();
 
-    m_dataThread->start();
-    m_dataUpdater->start();
+    _dataThread->start();
+    _dataUpdater->start();
 }
 
-WinTop::~WinTop()
+WinTaskManager::~WinTaskManager()
 {}
 
-void WinTop::setupUI()
+void WinTaskManager::setupUI()
 {
     setupStyles();
     _tabWidget = new QTabWidget(this);
@@ -57,7 +57,7 @@ void WinTop::setupUI()
     _processTableView->setSortingEnabled(true);
     _processTableView->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
 
-    connect(_filterLineEdit, &QLineEdit::textChanged, this, &WinTop::onFilterLineEditTextChanged);
+    connect(_filterLineEdit, &QLineEdit::textChanged, this, &WinTaskManager::onFilterLineEditTextChanged);
 
     processLayout->addWidget(_filterLineEdit);
     processLayout->addWidget(_processTableView);
@@ -76,23 +76,25 @@ void WinTop::setupUI()
     _tabWidget->addTab(_processesTab, "Процессы");
     _tabWidget->addTab(_treeTab, "Дерево процессов");
     _tabWidget->addTab(_performanceTab, "Производительность");
-    _tabWidget->addTab(m_servicesTab, "Службы");
+    _tabWidget->addTab(_servicesTab, "Службы");
 
     setCentralWidget(_tabWidget);
-    setWindowTitle("WinTop");
+    setWindowTitle("WinTaskManager");
 }
 
-void WinTop::onProcessContextMenu(const QPoint& pos)
+void WinTaskManager::onProcessContextMenu(const QPoint& pos)
 {
     QModelIndex index = _processTableView->indexAt(pos);
-    if (!index.isValid()) {
+    if (!index.isValid()) 
+    {
         return;
     }
 
     QModelIndex sourceIndex = _proxyModel->mapToSource(index);
     ProcessInfo proc = _processModel->getProcessByRow(sourceIndex.row());
 
-    if (proc.pid == 0) {
+    if (proc.pid == 0) 
+    {
         return;
     }
 
@@ -103,14 +105,17 @@ void WinTop::onProcessContextMenu(const QPoint& pos)
 }
 
 // Новый слот для дерева
-void WinTop::onTreeContextMenu(const QPoint& pos) {
+void WinTaskManager::onTreeContextMenu(const QPoint& pos) 
+{
     QModelIndex index = _processTreeView->indexAt(pos);
-    if (!index.isValid()) {
+    if (!index.isValid()) 
+    {
         return; // клик не на строке
     }
 
     quint32 pid = getPIDFromTreeIndex(index);
-    if (pid == 0) {
+    if (pid == 0)
+    {
         return;
     }
 
@@ -126,31 +131,35 @@ void WinTop::onTreeContextMenu(const QPoint& pos) {
     _processContextMenu->exec(_processTreeView->viewport()->mapToGlobal(pos));
 }
 
-quint32 WinTop::getPIDFromTreeIndex(const QModelIndex& index) {
-    if (!index.isValid()) {
+quint32 WinTaskManager::getPIDFromTreeIndex(const QModelIndex& index)
+{
+    if (!index.isValid()) 
+    {
         return 0;
     }
 
     QModelIndex pidIndex = index.siblingAtColumn(1);
-    if (pidIndex.isValid()) {
+    if (pidIndex.isValid()) 
+    {
         return pidIndex.data().toUInt();
     }
 
     QModelIndex nameIndex = index.siblingAtColumn(0);
-    if (nameIndex.isValid()) {
+    if (nameIndex.isValid())
+    {
         return nameIndex.data(Qt::UserRole + 1).toUInt();
     }
 
     return 0;
 }
 
-void WinTop::onFilterLineEditTextChanged(const QString &text)
+void WinTaskManager::onFilterLineEditTextChanged(const QString &text)
 {
     _proxyModel->setFilterKeyColumn(1);
     _proxyModel->setFilterFixedString(text);
 }
 
-void WinTop::setUpProcessInfoContextMenu()
+void WinTaskManager::setUpProcessInfoContextMenu()
 {
     _processContextMenu = new QMenu(this);
     _killProcessAction = new QAction("Завершить процесс", this);
@@ -159,13 +168,13 @@ void WinTop::setUpProcessInfoContextMenu()
     _processContextMenu->addAction(_showDetailsAction);
     _processContextMenu->addAction(_killProcessAction);
 
-    connect(_processTableView, &QTableView::customContextMenuRequested, this, &WinTop::onProcessContextMenu);
-    connect(_processTreeView, &QTreeView::customContextMenuRequested, this, &WinTop::onTreeContextMenu);
-    connect(_killProcessAction, &QAction::triggered, this, &WinTop::killSelectedProcesses);
-    connect(_showDetailsAction, &QAction::triggered, this, &WinTop::showProcessDetails);
+    connect(_processTableView, &QTableView::customContextMenuRequested, this, &WinTaskManager::onProcessContextMenu);
+    connect(_processTreeView, &QTreeView::customContextMenuRequested, this, &WinTaskManager::onTreeContextMenu);
+    connect(_killProcessAction, &QAction::triggered, this, &WinTaskManager::killSelectedProcesses);
+    connect(_showDetailsAction, &QAction::triggered, this, &WinTaskManager::showProcessDetails);
 }
 
-void WinTop::setUpProcessTree() 
+void WinTaskManager::setUpProcessTree() 
 {
     _treeTab = new QWidget();
     auto* treeLayout = new QVBoxLayout(_treeTab);
@@ -186,7 +195,7 @@ void WinTop::setUpProcessTree()
     treeLayout->addWidget(_processTreeView);
 }
 
-void WinTop::setUpPerformanceTab()
+void WinTaskManager::setUpPerformanceTab()
 {
     _performanceTab = new QWidget();
     auto* perfLayout = new QHBoxLayout(_performanceTab); // горизонтальный layout
@@ -276,11 +285,14 @@ void WinTop::setUpPerformanceTab()
 
     perfLayout->addWidget(_performanceStack);
 
-    connect(_performanceTree, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* current, QTreeWidgetItem* previous) {
+    connect(_performanceTree, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* current, QTreeWidgetItem* previous)
+        {
         Q_UNUSED(previous);
-        if (current) {
+        if (current)
+        {
             QString resource = current->data(0, Qt::UserRole).toString();
-            if (resource == "disk") {
+            if (resource == "disk") 
+            {
                 _performanceStack->setCurrentWidget(_diskPerformancePage);
             }
         }
@@ -290,63 +302,71 @@ void WinTop::setUpPerformanceTab()
 
 }
 
-void WinTop::setUpServicesTab()
+void WinTaskManager::setUpServicesTab()
 {
-    m_servicesTab = new QWidget();
-    auto* servicesLayout = new QVBoxLayout(m_servicesTab);
+    _servicesTab = new QWidget();
+    auto* servicesLayout = new QVBoxLayout(_servicesTab);
 
-    m_servicesTableView = new QTableView();
-    m_servicesModel = new ServiceTableModel(this);
+    _servicesTableView = new QTableView();
+    _servicesModel = new ServiceTableModel(this);
     
     _servicesProxyModel = new QSortFilterProxyModel(this);
-    _servicesProxyModel->setSourceModel(m_servicesModel);
+    _servicesProxyModel->setSourceModel(_servicesModel);
     _servicesProxyModel->setSortRole(Qt::UserRole);
 
-    m_servicesTableView->setModel(_servicesProxyModel);
+    _servicesTableView->setModel(_servicesProxyModel);
 
     // Настройка таблицы
-    m_servicesTableView->setAlternatingRowColors(true);
-    m_servicesTableView->setSortingEnabled(true);
-    m_servicesTableView->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeMode::Interactive);
+    _servicesTableView->setAlternatingRowColors(true);
+    _servicesTableView->setSortingEnabled(true);
+    _servicesTableView->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeMode::Interactive);
 
     // === Контекстное меню для служб ===
-    m_serviceContextMenu = new QMenu(this);
-    m_startServiceAction = new QAction("Запустить службу", this);
-    m_stopServiceAction = new QAction("Остановить службу", this);
+    _serviceContextMenu = new QMenu(this);
+    _startServiceAction = new QAction("Запустить службу", this);
+    _stopServiceAction = new QAction("Остановить службу", this);
 
-    m_serviceContextMenu->addAction(m_startServiceAction);
-    m_serviceContextMenu->addAction(m_stopServiceAction);
+    _serviceContextMenu->addAction(_startServiceAction);
+    _serviceContextMenu->addAction(_stopServiceAction);
 
-    m_servicesTableView->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(m_servicesTableView, &QTableView::customContextMenuRequested,
-        this, &WinTop::onServiceContextMenu);
+    _servicesTableView->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(_servicesTableView, &QTableView::customContextMenuRequested,
+        this, &WinTaskManager::onServiceContextMenu);
 
-    connect(m_startServiceAction, &QAction::triggered, this, [this]() {
-        if (!m_selectedServiceName.isEmpty()) {
-            if (m_serviceControl.get()->startService(m_selectedServiceName)) {
+    connect(_startServiceAction, &QAction::triggered, this, [this]()
+        {
+        if (!_selectedServiceName.isEmpty()) 
+        {
+            if (m_serviceControl.get()->startService(_selectedServiceName)) 
+            {
                 QMessageBox::information(this, "Успешно", "Служба запущена.");
             }
-            else {
+            else 
+            {
                 QMessageBox::critical(this, "Ошибка", "Не удалось запустить службу.");
             }
         }
         });
 
-    connect(m_stopServiceAction, &QAction::triggered, this, [this]() {
-        if (!m_selectedServiceName.isEmpty()) {
-            if (m_serviceControl.get()->stopService(m_selectedServiceName)) {
+    connect(_stopServiceAction, &QAction::triggered, this, [this]() 
+        {
+        if (!_selectedServiceName.isEmpty()) 
+        {
+            if (m_serviceControl.get()->stopService(_selectedServiceName)) 
+            {
                 QMessageBox::information(this, "Успешно", "Служба остановлена.");
             }
-            else {
+            else 
+            {
                 QMessageBox::critical(this, "Ошибка", "Не удалось остановить службу.");
             }
         }
         });
 
-    servicesLayout->addWidget(m_servicesTableView);
+    servicesLayout->addWidget(_servicesTableView);
 }
 
-void WinTop::setUpNetworkPerformanceTab()
+void WinTaskManager::setUpNetworkPerformanceTab()
 {
     // === Страница сети ===
     _networkPerformancePage = new QWidget();
@@ -397,11 +417,14 @@ void WinTop::setUpNetworkPerformanceTab()
     _performanceStack->addWidget(_networkPerformancePage);
 
     // Подключаем выбор элемента в дереве
-    connect(_performanceTree, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* current, QTreeWidgetItem* previous) {
+    connect(_performanceTree, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* current, QTreeWidgetItem* previous)
+        {
         Q_UNUSED(previous);
-        if (current) {
+        if (current) 
+        {
             QString resource = current->data(0, Qt::UserRole).toString();
-            if (resource == "disk") {
+            if (resource == "disk")
+            {
                 _performanceStack->setCurrentWidget(_diskPerformancePage);
             }
             else if (resource == "network") 
@@ -424,14 +447,15 @@ void WinTop::setUpNetworkPerformanceTab()
         }
     });
 
-    connect(_networkAdapterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int index) {
+    connect(_networkAdapterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int index) 
+        {
         // Очищаем графики при смене адаптера
         _networkSeriesRecv->clear();
         _networkSeriesSent->clear();
     });
 }
 
-void WinTop::setUpGPUPerformanceTab()
+void WinTaskManager::setUpGPUPerformanceTab()
 {
     _gpuPerformancePage = new QWidget();
     auto* gpuPerfLayout = new QVBoxLayout(_gpuPerformancePage);
@@ -452,7 +476,7 @@ void WinTop::setUpGPUPerformanceTab()
 
     gpuPerfLayout->addWidget(_gpuChartView);
 
-    // === Информация о GPU (внизу) ===
+    // Информация о GPU (внизу) 
     _gpuInfoTree = new QTreeWidget();
     _gpuInfoTree->setHeaderHidden(true);
     _gpuInfoTree->setRootIsDecorated(false);
@@ -466,7 +490,7 @@ void WinTop::setUpGPUPerformanceTab()
     _performanceStack->addWidget(_gpuPerformancePage);
 }
 
-void WinTop::setUpCPUPerformanceTab()
+void WinTaskManager::setUpCPUPerformanceTab()
 {
     _cpuPerformancePage = new QWidget();
     auto* cpuPerfLayout = new QVBoxLayout(_cpuPerformancePage);
@@ -492,7 +516,7 @@ void WinTop::setUpCPUPerformanceTab()
 
     cpuPerfLayout->addWidget(_cpuChartView);
 
-    // === Информация о CPU (внизу) ===
+    // Информация о CPU (внизу) 
     _cpuInfoTree = new QTreeWidget();
     _cpuInfoTree->setHeaderHidden(true);
     _cpuInfoTree->setRootIsDecorated(false);
@@ -507,7 +531,7 @@ void WinTop::setUpCPUPerformanceTab()
     _performanceStack->addWidget(_cpuPerformancePage);
 }
 
-void WinTop::setUpMemoryPerformanceTab()
+void WinTaskManager::setUpMemoryPerformanceTab()
 {
     _memoryPerformancePage = new QWidget();
     auto* memoryPerfLayout = new QVBoxLayout(_memoryPerformancePage);
@@ -533,7 +557,7 @@ void WinTop::setUpMemoryPerformanceTab()
 
     memoryPerfLayout->addWidget(_memoryChartView);
 
-    // === Информация о Памяти (внизу) ===
+    // Информация о Памяти (внизу) 
     _memoryInfoTree = new QTreeWidget();
     _memoryInfoTree->setHeaderHidden(true);
     _memoryInfoTree->setRootIsDecorated(false);
@@ -548,26 +572,28 @@ void WinTop::setUpMemoryPerformanceTab()
     _performanceStack->addWidget(_memoryPerformancePage);
 }
 
-void WinTop::updateNetworkAdapterList(const QList<NetworkInterfaceInfo>& networkInfo) {
+void WinTaskManager::updateNetworkAdapterList(const QList<NetworkInterfaceInfo>& networkInfo) 
+{
 
     _networkAdapterCombo->clear();
 
-    for (const auto& net : networkInfo) {
+    for (const auto& net : networkInfo) 
+    {
         // Добавляем только активные адаптеры
         _networkAdapterCombo->addItem(QString("%1 (%2)").arg(net.description), net.name);
     }
 }
 
-void WinTop::updatePerformanceTab(const SystemInfo& info, const DisksInfo& disksInfo, const QList<NetworkInterfaceInfo>& networkInfo, const QList<GPUInfo>& gpuInfo)
+void WinTaskManager::updatePerformanceTab(const SystemInfo& info, const DisksInfo& disksInfo, const QList<NetworkInterfaceInfo>& networkInfo, const QList<GPUInfo>& gpuInfo)
 {
-    // === Сохраняем состояния ===
+    // Сохраняем состояния
     QStringList diskExpanded = getExpandedItems(_diskInfoTree);
     QStringList networkExpanded = getExpandedItems(_networkInfoTree);
     QStringList gpuExpanded = getExpandedItems(_gpuInfoTree);
     QStringList cpuExpanded = getExpandedItems(_cpuInfoTree);
     QStringList memoryExpanded = getExpandedItems(_memoryInfoTree);
 
-    // === Обновляем данные диска ===
+    // Обновляем данные диска
     
     // Обновляем график диска
     static int diskX = 0;
@@ -575,17 +601,19 @@ void WinTop::updatePerformanceTab(const SystemInfo& info, const DisksInfo& disks
     _diskSeriesRead->append(diskX, totalRead / 1024 / 1024); // в МБ/с
     _diskSeriesWrite->append(diskX, totalWrite / 1024 / 1024);
     diskX++;
-    if (_diskSeriesRead->count() > 100) {
+    if (_diskSeriesRead->count() > 100)
+    {
         _diskSeriesRead->removePoints(0, 1);
         _diskSeriesWrite->removePoints(0, 1);
     }
     _diskAxisX->setRange(diskX - 100, diskX);
 
-    // === Обновляем информацию о диске ===
+    // Обновляем информацию о диске
     _diskInfoTree->clear();
     auto* diskGroup = new QTreeWidgetItem(_diskInfoTree);
     diskGroup->setText(0, "Диски");
-    for (const auto& disk : disksInfo.disks) {
+    for (const auto& disk : disksInfo.disks)
+    {
         auto* item = new QTreeWidgetItem(diskGroup);
         diskGroup->setExpanded(true); 
         item->setText(0, QString("%1: %2 ГБ / %3 ГБ")
@@ -603,16 +631,19 @@ void WinTop::updatePerformanceTab(const SystemInfo& info, const DisksInfo& disks
     totalWriteItem->setText(0, QString("Всего записано: %1 МБ/с")
         .arg(disksInfo.writeBytesPerSec / 1024 / 1024, 0, 'f', 2));
 
-    // === Обновляем данные сети ===
+    // Обновляем данные сети 
    
     // Обновляем график сети
     static int networkX = 0;
     double selectedRecv = 0, selectedSent = 0;
     QString selectedAdapter = _networkAdapterCombo->currentData().toString();
-    if (networkX != 0) {
+    if (networkX != 0) 
+    {
         // Статистика для выбранного адаптера
-        for (const auto& net : networkInfo) {
-            if (net.name == selectedAdapter) {
+        for (const auto& net : networkInfo) 
+        {
+            if (net.name == selectedAdapter) 
+            {
                 selectedRecv = net.receiveBytesPerSec;
                 selectedSent = net.sendBytesPerSec;
                 break;
@@ -623,13 +654,14 @@ void WinTop::updatePerformanceTab(const SystemInfo& info, const DisksInfo& disks
     _networkSeriesRecv->append(networkX, selectedRecv / 1024 / 128); // в МБит/с
     _networkSeriesSent->append(networkX, selectedSent / 1024 / 128);
     networkX++;
-    if (_networkSeriesRecv->count() > 100) {
+    if (_networkSeriesRecv->count() > 100) 
+    {
         _networkSeriesRecv->removePoints(0, 1);
         _networkSeriesSent->removePoints(0, 1);
     }
     _networkAxisX->setRange(networkX - 100, networkX);
 
-    // === Обновляем информацию о сети ===
+    // Обновляем информацию о сети
     _networkInfoTree->clear();
     auto* networkGroup = new QTreeWidgetItem(_networkInfoTree);
     networkGroup->setText(0, "Сетевые адаптеры");
@@ -651,14 +683,15 @@ void WinTop::updatePerformanceTab(const SystemInfo& info, const DisksInfo& disks
         }
     }
 
-    // === Обновляем данные GPU ===
     // Обновляем график GPU
     static int gpuX = 0;
     double maxLoad = 0;
-    for (const auto& gpu : gpuInfo) {
+    for (const auto& gpu : gpuInfo) 
+    {
         QString gpuName = gpu.name;
 
-        if (!_gpuSeriesMap.contains(gpuName)) {
+        if (!_gpuSeriesMap.contains(gpuName)) 
+        {
             // Создаём новый график
             auto* series = new QLineSeries();
             series->setName(gpuName); // подпись в легенде
@@ -674,35 +707,42 @@ void WinTop::updatePerformanceTab(const SystemInfo& info, const DisksInfo& disks
 
     // Удаляем лишние графики, если видеокарты исчезли
     QStringList currentNames;
-    for (const auto& gpu : gpuInfo) {
+    for (const auto& gpu : gpuInfo) 
+    {
         currentNames.append(gpu.name);
     }
-    for (auto it = _gpuSeriesMap.begin(); it != _gpuSeriesMap.end();) {
-        if (!currentNames.contains(it.key())) {
+    for (auto it = _gpuSeriesMap.begin(); it != _gpuSeriesMap.end();) 
+    {
+        if (!currentNames.contains(it.key()))
+        {
             _gpuChart->removeSeries(it.value());
             delete it.value();
             it = _gpuSeriesMap.erase(it);
         }
-        else {
+        else
+        {
             ++it;
         }
     }
 
     gpuX++;
     // Удаляем старые точки, если нужно
-    for (auto* series : _gpuSeriesMap) {
-        if (series->count() > 100) {
+    for (auto* series : _gpuSeriesMap)
+    {
+        if (series->count() > 100) 
+        {
             series->removePoints(0, 1);
         }
     }
     _gpuAxisX->setRange(gpuX - 100, gpuX);
 
-    // === Обновляем информацию о GPU ===
+    // Обновляем информацию о GPU
     _gpuInfoTree->clear();
     auto* gpuGroup = new QTreeWidgetItem(_gpuInfoTree);
     gpuGroup->setText(0, "Видеокарты");
     gpuGroup->setExpanded(true);
-    for (const auto& gpu : gpuInfo) {
+    for (const auto& gpu : gpuInfo) 
+    {
         auto* gpuAdapterGroup = new QTreeWidgetItem(gpuGroup);
         gpuAdapterGroup->setText(0, gpu.name);
 
@@ -728,7 +768,8 @@ void WinTop::updatePerformanceTab(const SystemInfo& info, const DisksInfo& disks
     static int cpuX = 0;
     _cpuSeries->append(cpuX, info.cpuUsage);
     cpuX++;
-    if (_cpuSeries->count() > 100) {
+    if (_cpuSeries->count() > 100) 
+    {
         _cpuSeries->removePoints(0, 1);
     }
     _cpuAxisX->setRange(cpuX - 100, cpuX);
@@ -771,21 +812,23 @@ void WinTop::updatePerformanceTab(const SystemInfo& info, const DisksInfo& disks
     // Загрузка ядер
     auto* coresGroup = new QTreeWidgetItem(cpuGroup);
     coresGroup->setText(0, "Загрузка ядер");
-    for (int i = 0; i < info.cpuCoreUsage.size(); i++) {
+    for (int i = 0; i < info.cpuCoreUsage.size(); i++) 
+    {
         auto* coreItem = new QTreeWidgetItem(coresGroup);
         coreItem->setText(0, QString("Ядро %1: %2%").arg(i + 1).arg(info.cpuCoreUsage[i], 0, 'f', 2));
     }
 
-    // === Обновляем данные Памяти ===
+    // Обновляем данные Памяти
     static int memoryX = 0;
     _memorySeriesUsed->append(memoryX, (double)info.usedMemory / (double)info.totalMemory * 100.0);
     memoryX++;
-    if (_memorySeriesUsed->count() > 100) {
+    if (_memorySeriesUsed->count() > 100)
+    {
         _memorySeriesUsed->removePoints(0, 1);
     }
     _memoryAxisX->setRange(memoryX - 100, memoryX);
 
-    // === Обновляем информацию о Памяти ===
+    // Обновляем информацию о Памяти
     _memoryInfoTree->clear();
     auto* memoryGroup = new QTreeWidgetItem(_memoryInfoTree);
     memoryGroup->setText(0, "Оперативная память");
@@ -804,14 +847,16 @@ void WinTop::updatePerformanceTab(const SystemInfo& info, const DisksInfo& disks
     setExpandedItems(_memoryInfoTree, memoryExpanded);
 }
 
-void WinTop::killSelectedProcesses()
+void WinTaskManager::killSelectedProcesses()
 {
-    if (_selectedProcessID != 0) {
+    if (_selectedProcessID != 0) 
+    {
         QMessageBox::StandardButton reply;
         
         QString procName = _selectedProcessName;
         QModelIndexList selected = _processTableView->selectionModel()->selectedRows();
-        if (!selected.isEmpty()) {
+        if (!selected.isEmpty()) 
+        {
             QModelIndex proxyIndex = selected.first();
             QModelIndex sourceIndex = _proxyModel->mapToSource(proxyIndex);
             procName = _processModel->getProcessByRow(sourceIndex.row()).name;
@@ -821,128 +866,149 @@ void WinTop::killSelectedProcesses()
             QString("Завершить процесс %1 (PID: %2)?").arg(procName).arg(_selectedProcessID),
             QMessageBox::Yes | QMessageBox::No);
 
-        if (reply == QMessageBox::Yes) {
-            if (_processControl->killProcess(_selectedProcessID)) {
+        if (reply == QMessageBox::Yes) 
+        {
+            if (_processControl->killProcess(_selectedProcessID)) 
+            {
                 QMessageBox::information(this, "Успешно", "Процесс завершён.");
             }
-            else {
+            else 
+            {
                 QMessageBox::critical(this, "Ошибка", "Не удалось завершить процесс.");
             }
         }
     }
 }
 
-void WinTop::showProcessDetails()
+void WinTaskManager::showProcessDetails()
 {
-    if (_selectedProcessID != 0) {
+    if (_selectedProcessID != 0)
+    {
         showProcessDetailsDialog(_selectedProcessID);
     }
 }
 
-void WinTop::showProcessDetailsDialog(quint32 pid) {
+void WinTaskManager::showProcessDetailsDialog(quint32 pid) 
+{
     QList<ProcessInfo> processes = _lastProcesses;
     
     ProcessDetails details = _processControl.get()->getProcessDetails(pid, processes);
 
-    // Создаём и показываем диалог
     ProcessDetailsDialog dialog(this);
     dialog.setProcessControl(_processControl.get());
     dialog.setProcessDetails(details);
     dialog.exec();
 }
 
-void WinTop::onServiceContextMenu(const QPoint& pos) {
-    QModelIndex proxyIndex = m_servicesTableView->indexAt(pos);
-    if (!proxyIndex.isValid()) {
+void WinTaskManager::onServiceContextMenu(const QPoint& pos)
+{
+    QModelIndex proxyIndex = _servicesTableView->indexAt(pos);
+    if (!proxyIndex.isValid()) 
+    {
         return;
     }
     QModelIndex sourceIndex = _servicesProxyModel->mapToSource(proxyIndex);
     // Получаем имя службы из модели
-    m_selectedServiceName = m_servicesModel->data(sourceIndex.siblingAtColumn(0), Qt::DisplayRole).toString(); // колонка "Имя"
+    _selectedServiceName = _servicesModel->data(sourceIndex.siblingAtColumn(0), Qt::DisplayRole).toString(); // колонка "Имя"
 
-    if (m_selectedServiceName.isEmpty()) {
+    if (_selectedServiceName.isEmpty()) 
+    {
         return;
     }
 
     // Показываем меню
-    m_serviceContextMenu->exec(m_servicesTableView->viewport()->mapToGlobal(pos));
+    _serviceContextMenu->exec(_servicesTableView->viewport()->mapToGlobal(pos));
 }
 
-void WinTop::onDataReady(const UpdateData& data)
+void WinTaskManager::onDataReady(const UpdateData& data)
 {
     QWidget* currentWidget = _tabWidget->currentWidget();
     _lastProcesses = data.processes;
     _lastServices = data.services;
     _lastNetworkInterfaces = data.networkInterfaces;
-    // Обновляем таблицу
-    if (_processModel && (currentWidget == _processesTab)) {
+    if (_processModel && (currentWidget == _processesTab))
+    {
         _processModel->updateDataPartial(data.processes);
     }
 
-    if (_processTreeModel && (currentWidget == _treeTab)) {
+    if (_processTreeModel && (currentWidget == _treeTab)) 
+    {
         _processTreeModel->updateData(data.processes);
     }
 
-    if (m_servicesModel && (currentWidget == m_servicesTab)) {
-        m_servicesModel->updateData(data.services);
+    if (_servicesModel && (currentWidget == _servicesTab))
+    {
+        _servicesModel->updateData(data.services);
     }
 
-    // Обновляем вкладку производительности
     updatePerformanceTab(data.systemInfo, data.disks, data.networkInterfaces, data.gpus);
     static int i = 0;
 }
 
-QStringList WinTop::getExpandedItems(QTreeWidget* tree) {
+QStringList WinTaskManager::getExpandedItems(QTreeWidget* tree) 
+{
     QStringList expanded;
     std::function<void(QTreeWidgetItem*)> traverse;
-    traverse = [&](QTreeWidgetItem* item) {
-        if (item->isExpanded()) {
+    traverse = [&](QTreeWidgetItem* item) 
+        {
+        if (item->isExpanded()) 
+        {
             // Сохраняем путь к элементу (например, "Группа/Подгруппа/Элемент")
             QStringList path;
             QTreeWidgetItem* current = item;
-            while (current) {
+            while (current) 
+            {
                 path.prepend(current->text(0));
                 current = current->parent();
             }
             expanded.append(path.join("/"));
         }
-        for (int i = 0; i < item->childCount(); ++i) {
+        for (int i = 0; i < item->childCount(); ++i) 
+        {
             traverse(item->child(i));
         }
     };
 
-    for (int i = 0; i < tree->topLevelItemCount(); ++i) {
+    for (int i = 0; i < tree->topLevelItemCount(); ++i)
+    {
         traverse(tree->topLevelItem(i));
     }
     return expanded;
 }
 
-void WinTop::setExpandedItems(QTreeWidget* tree, const QStringList& items) {
+void WinTaskManager::setExpandedItems(QTreeWidget* tree, const QStringList& items) 
+{
     std::function<void(QTreeWidgetItem*, const QStringList&)> traverse;
-    traverse = [&](QTreeWidgetItem* item, const QStringList& paths) {
+    traverse = [&](QTreeWidgetItem* item, const QStringList& paths)
+        {
         QStringList path;
         QTreeWidgetItem* current = item;
-        while (current) {
+        while (current) 
+        {
             path.prepend(current->text(0));
             current = current->parent();
         }
         QString currentPath = path.join("/");
 
-        if (paths.contains(currentPath)) {
+        if (paths.contains(currentPath)) 
+        {
             item->setExpanded(true);
         }
 
-        for (int i = 0; i < item->childCount(); ++i) {
+        for (int i = 0; i < item->childCount(); ++i) 
+        {
             traverse(item->child(i), paths);
         }
-        };
+    };
 
-    for (int i = 0; i < tree->topLevelItemCount(); ++i) {
+    for (int i = 0; i < tree->topLevelItemCount(); ++i) 
+    {
         traverse(tree->topLevelItem(i), items);
     }
 }
 
-void WinTop::setupStyles() {
+void WinTaskManager::setupStyles() 
+{
     QString style = R"(
         QMainWindow {
             background-color: #f5f5f5;

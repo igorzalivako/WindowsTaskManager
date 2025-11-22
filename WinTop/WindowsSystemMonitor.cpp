@@ -31,7 +31,8 @@ bool WindowsSystemMonitor::calculateCpuUsage(double& cpu_usage)
     ULARGE_INTEGER total = { 0 };
     total.QuadPart = kernel.QuadPart + user.QuadPart;
 
-    if (!_initialized) {
+    if (!_initialized) 
+    {
         _lastIdleTime = idle;
         _lastKernelTime = kernel;
         _lastUserTime = user;
@@ -44,7 +45,8 @@ bool WindowsSystemMonitor::calculateCpuUsage(double& cpu_usage)
     idle_diff.QuadPart = idle.QuadPart - _lastIdleTime.QuadPart;
     total_diff.QuadPart = total.QuadPart - (_lastKernelTime.QuadPart + _lastUserTime.QuadPart);
 
-    if (total_diff.QuadPart == 0) {
+    if (total_diff.QuadPart == 0)
+    {
         cpu_usage = 0.0;
         return true;
     }
@@ -58,9 +60,11 @@ bool WindowsSystemMonitor::calculateCpuUsage(double& cpu_usage)
     return true;
 }
 
-bool WindowsSystemMonitor::calculateProcessCpuUsage(HANDLE hProc, ProcessTimeInfo& time_info, quint32 pid) {
+bool WindowsSystemMonitor::calculateProcessCpuUsage(HANDLE hProc, ProcessTimeInfo& time_info, quint32 pid)
+{
     FILETIME creation_time, exit_time, kernel_time, user_time;
-    if (!GetProcessTimes(hProc, &creation_time, &exit_time, &kernel_time, &user_time)) {
+    if (!GetProcessTimes(hProc, &creation_time, &exit_time, &kernel_time, &user_time))
+    {
         return false;
     }
 
@@ -83,7 +87,8 @@ bool WindowsSystemMonitor::calculateProcessCpuUsage(HANDLE hProc, ProcessTimeInf
     return true;
 }
 
-double WindowsSystemMonitor::computeCpuPercentage(const ProcessTimeInfo& old, const ProcessTimeInfo& current, qint64 elapsed_ms) {
+double WindowsSystemMonitor::computeCpuPercentage(const ProcessTimeInfo& old, const ProcessTimeInfo& current, qint64 elapsed_ms) 
+{
     if (elapsed_ms == 0) return 0.0;
 
     qint64 old_total = old.last_total_time;
@@ -97,7 +102,8 @@ double WindowsSystemMonitor::computeCpuPercentage(const ProcessTimeInfo& old, co
     return cpu_usage;
 }
 
-SystemInfo WindowsSystemMonitor::getSystemInfo() {
+SystemInfo WindowsSystemMonitor::getSystemInfo()
+{
     SystemInfo info = {};
 
     // CPU
@@ -116,7 +122,8 @@ SystemInfo WindowsSystemMonitor::getSystemInfo() {
     // Memory
     MEMORYSTATUSEX mem_status;
     mem_status.dwLength = sizeof(mem_status);
-    if (GlobalMemoryStatusEx(&mem_status)) {
+    if (GlobalMemoryStatusEx(&mem_status)) 
+    {
         info.totalMemory = mem_status.ullTotalPhys;
         info.availableMemory = mem_status.ullAvailPhys;
         info.usedMemory = info.totalMemory - info.availableMemory;
@@ -125,10 +132,10 @@ SystemInfo WindowsSystemMonitor::getSystemInfo() {
     return info;
 }
 
-QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
+QList<ProcessInfo> WindowsSystemMonitor::getProcesses()
+{
     QList<ProcessInfo> processes;
 
-    // Получаем текущее время
     qint64 current_time = QDateTime::currentMSecsSinceEpoch();
 
     // Получаем статистику диска
@@ -138,14 +145,16 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
     auto processGPUInfo = _gpuMonitor->getProcessGPUInfo();
 
     HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (h_snap == INVALID_HANDLE_VALUE) {
+    if (h_snap == INVALID_HANDLE_VALUE) 
+    {
         return processes;
     }
 
     PROCESSENTRY32 entry;
     entry.dwSize = sizeof(entry);
 
-    if (!Process32First(h_snap, &entry)) {
+    if (!Process32First(h_snap, &entry)) 
+    {
         CloseHandle(h_snap);
         return processes;
     }
@@ -188,7 +197,6 @@ QList<ProcessInfo> WindowsSystemMonitor::getProcesses() {
             CloseHandle(h_proc);
         }
 
-        // === Добавляем информацию о диске ===
         if (processDiskInfo.contains(pid)) 
         {
             const auto& diskInfo = processDiskInfo[pid];
@@ -218,11 +226,14 @@ quint32 WindowsSystemMonitor::getProcessCount()
 {
     quint32 count = 0;
     HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (h_snap != INVALID_HANDLE_VALUE) {
+    if (h_snap != INVALID_HANDLE_VALUE)
+    {
         PROCESSENTRY32 entry = { 0 };
         entry.dwSize = sizeof(entry);
-        if (Process32First(h_snap, &entry)) {
-            do {
+        if (Process32First(h_snap, &entry))
+        {
+            do
+            {
                 count++;
             } while (Process32Next(h_snap, &entry));
         }
@@ -235,10 +246,12 @@ quint32 WindowsSystemMonitor::getThreadCount()
 {
     quint32 count = 0;
     HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
-    if (h_snap != INVALID_HANDLE_VALUE) {
+    if (h_snap != INVALID_HANDLE_VALUE)
+    {
         THREADENTRY32 entry = { 0 };
         entry.dwSize = sizeof(entry);
-        if (Thread32First(h_snap, &entry)) {
+        if (Thread32First(h_snap, &entry))
+        {
             do {
                 count++;
             } while (Thread32Next(h_snap, &entry));
@@ -248,7 +261,8 @@ quint32 WindowsSystemMonitor::getThreadCount()
     return count;
 }
 
-double WindowsSystemMonitor::getBaseCpuSpeedGHz() {
+double WindowsSystemMonitor::getBaseCpuSpeedGHz() 
+{
     HKEY hKey;
     DWORD speed = 0;
     DWORD size = sizeof(speed);
@@ -258,14 +272,15 @@ double WindowsSystemMonitor::getBaseCpuSpeedGHz() {
         0, KEY_READ, &hKey) == ERROR_SUCCESS) {
         if (RegQueryValueExW(hKey, L"~MHz", NULL, NULL, (LPBYTE)&speed, &size) == ERROR_SUCCESS) {
             RegCloseKey(hKey);
-            return (double)speed / 1000.0; // MHz -> GHz
+            return (double)speed / 1000.0; // MГц -> ГГц
         }
         RegCloseKey(hKey);
     }
     return 0.0;
 }
 
-quint32 WindowsSystemMonitor::getCoreCount() {
+quint32 WindowsSystemMonitor::getCoreCount()
+{
     DWORD length = 0;
     GetLogicalProcessorInformation(NULL, &length);
     if (length == 0) return 0;
@@ -274,10 +289,12 @@ quint32 WindowsSystemMonitor::getCoreCount() {
     if (!buffer) return 0;
 
     quint32 coreCount = 0;
-    if (GetLogicalProcessorInformation(buffer, &length)) {
+    if (GetLogicalProcessorInformation(buffer, &length)) 
+    {
         DWORD count = length / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
         for (DWORD i = 0; i < count; i++) {
-            if (buffer[i].Relationship == RelationProcessorCore) {
+            if (buffer[i].Relationship == RelationProcessorCore) 
+            {
                 coreCount++;
             }
         }
@@ -287,7 +304,8 @@ quint32 WindowsSystemMonitor::getCoreCount() {
     return coreCount;
 }
 
-quint32 WindowsSystemMonitor::getLogicalProcessorCount() {
+quint32 WindowsSystemMonitor::getLogicalProcessorCount()
+{
     DWORD length = 0;
     GetLogicalProcessorInformation(NULL, &length);
     if (length == 0) return 0;
@@ -295,11 +313,14 @@ quint32 WindowsSystemMonitor::getLogicalProcessorCount() {
     PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(length);
     if (!buffer) return 0;
 
-    if (GetLogicalProcessorInformation(buffer, &length)) {
+    if (GetLogicalProcessorInformation(buffer, &length)) 
+    {
         DWORD count = length / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
         quint32 logicalCount = 0;
-        for (DWORD i = 0; i < count; i++) {
-            if (buffer[i].Relationship == RelationProcessorCore) {
+        for (DWORD i = 0; i < count; i++) 
+        {
+            if (buffer[i].Relationship == RelationProcessorCore) 
+            {
                 logicalCount += __popcnt64(buffer[i].ProcessorMask);
             }
         }
@@ -311,7 +332,8 @@ quint32 WindowsSystemMonitor::getLogicalProcessorCount() {
     return 0;
 }
 
-quint32 WindowsSystemMonitor::getCacheSizeKB(int level) {
+quint32 WindowsSystemMonitor::getCacheSizeKB(int level)
+{
     DWORD length = 0;
     GetLogicalProcessorInformation(NULL, &length);
     if (length == 0) return 0;
@@ -320,12 +342,15 @@ quint32 WindowsSystemMonitor::getCacheSizeKB(int level) {
     if (!buffer) return 0;
 
     quint32 totalCacheSizeKB = 0;
-    if (GetLogicalProcessorInformation(buffer, &length)) {
+    if (GetLogicalProcessorInformation(buffer, &length)) 
+    {
         DWORD count = length / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
         for (DWORD i = 0; i < count; i++) {
-            if (buffer[i].Relationship == RelationCache) {
+            if (buffer[i].Relationship == RelationCache) 
+            {
                 PCACHE_DESCRIPTOR cache = &buffer[i].Cache;
-                if (cache->Level == level) {
+                if (cache->Level == level)
+                {
                     totalCacheSizeKB += cache->Size;
                 }
             }
@@ -338,14 +363,14 @@ quint32 WindowsSystemMonitor::getCacheSizeKB(int level) {
 
 QList<double> WindowsSystemMonitor::getCpuCoreUsage() 
 {
-    PdhCollectQueryData(m_cpuCoreQuery);
+    PdhCollectQueryData(_cpuCoreQuery);
     QList<double> coreUsage;
 
     quint32 logicalCount = getLogicalProcessorCount();
-    for (quint32 i = 0; i < logicalCount && i < m_cpuCoreCounters.size(); i++) 
+    for (quint32 i = 0; i < logicalCount && i < _cpuCoreCounters.size(); i++) 
     {
         PDH_FMT_COUNTERVALUE value;
-        if (PdhGetFormattedCounterValue(m_cpuCoreCounters[i], PDH_FMT_DOUBLE, NULL, &value) == ERROR_SUCCESS) 
+        if (PdhGetFormattedCounterValue(_cpuCoreCounters[i], PDH_FMT_DOUBLE, NULL, &value) == ERROR_SUCCESS) 
         {
             coreUsage.append(value.doubleValue);
         }
@@ -360,7 +385,7 @@ QList<double> WindowsSystemMonitor::getCpuCoreUsage()
 
 bool WindowsSystemMonitor::initCpuCoreCounters() 
 {
-    if (PdhOpenQuery(NULL, 0, &m_cpuCoreQuery) != ERROR_SUCCESS) 
+    if (PdhOpenQuery(NULL, 0, &_cpuCoreQuery) != ERROR_SUCCESS) 
     {
         return false;
     }
@@ -370,13 +395,13 @@ bool WindowsSystemMonitor::initCpuCoreCounters()
     {
         QString counterPath = QString("\\Processor(%1)\\% Processor Time").arg(i);
         PDH_HCOUNTER counter;
-        if (PdhAddEnglishCounterW(m_cpuCoreQuery, reinterpret_cast<LPCWSTR>(counterPath.utf16()), 0, &counter) == ERROR_SUCCESS) 
+        if (PdhAddEnglishCounterW(_cpuCoreQuery, reinterpret_cast<LPCWSTR>(counterPath.utf16()), 0, &counter) == ERROR_SUCCESS) 
         {
-            m_cpuCoreCounters.append(counter);
+            _cpuCoreCounters.append(counter);
         }
     }
 
-    PdhCollectQueryData(m_cpuCoreQuery);
+    PdhCollectQueryData(_cpuCoreQuery);
     
     return true;
 }

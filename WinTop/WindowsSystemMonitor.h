@@ -9,7 +9,8 @@
 #include <IGPUMonitor.h>
 #include <Pdh.h>
 
-struct ProcessTimeInfo {
+struct ProcessTimeInfo 
+{
 	ULARGE_INTEGER creation_time = {};
 	ULARGE_INTEGER exit_time = {};
 	ULARGE_INTEGER kernel_time = {};
@@ -50,7 +51,7 @@ private:
 
 	QList<double> getCpuCoreUsage();
 
-	PDH_HQUERY m_cpuCoreQuery = nullptr;
-	QList<PDH_HCOUNTER> m_cpuCoreCounters;
+	PDH_HQUERY _cpuCoreQuery = nullptr;
+	QList<PDH_HCOUNTER> _cpuCoreCounters;
 	bool initCpuCoreCounters();
 };

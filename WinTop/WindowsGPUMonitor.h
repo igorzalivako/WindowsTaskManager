@@ -49,6 +49,6 @@ private:
 
     bool initializeADL(); 
     bool initializeNVML();
-    int GetAdapterActiveStatus(int adapterId, int& active);
-    int GetUsedMemory(int adapterId);
+    int GetAdapterActiveStatus(int adapterId, int& active) const;
+    int GetUsedMemory(int adapterId) const;
 };

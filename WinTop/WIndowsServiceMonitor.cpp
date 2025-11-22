@@ -1,12 +1,15 @@
 #include "WIndowsServiceMonitor.h"
 
-WindowsServiceMonitor::WindowsServiceMonitor() {
+WindowsServiceMonitor::WindowsServiceMonitor() 
+{
 }
 
-WindowsServiceMonitor::~WindowsServiceMonitor() {
+WindowsServiceMonitor::~WindowsServiceMonitor() 
+{
 }
 
-QList<ServiceInfo> WindowsServiceMonitor::getServices() {
+QList<ServiceInfo> WindowsServiceMonitor::getServices() 
+{
     QList<ServiceInfo> services;
 
     SC_HANDLE hSCM = OpenSCManager(NULL, NULL, SC_MANAGER_ENUMERATE_SERVICE);
@@ -26,7 +29,8 @@ QList<ServiceInfo> WindowsServiceMonitor::getServices() {
         return services;
     }
 
-    if (bytesNeeded > 0) {
+    if (bytesNeeded > 0) 
+    {
         auto* buffer = (LPENUM_SERVICE_STATUSW)malloc(bytesNeeded);
         if (buffer) 
         {
@@ -74,8 +78,10 @@ QList<ServiceInfo> WindowsServiceMonitor::getServices() {
     return services;
 }
 
-ServiceStatus WindowsServiceMonitor::getStatusString(DWORD state) {
-    switch (state) {
+ServiceStatus WindowsServiceMonitor::getStatusString(DWORD state) 
+{
+    switch (state) 
+    {
     case SERVICE_RUNNING:
         return ServiceStatus::ssRunning;
     case SERVICE_STOPPED:

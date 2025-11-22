@@ -5,13 +5,16 @@
 
 const quint32 GRACEFUL_KILL_PROCESS_TIMEOUT = 3000;
 
-QString WindowsProcessControl::getProcessPath(quint32 pid) {
+QString WindowsProcessControl::getProcessPath(quint32 pid) 
+{
     QString path = "";
     HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
-    if (h_proc) {
+    if (h_proc) 
+    {
         wchar_t buffer[MAX_PATH];
         DWORD size = MAX_PATH;
-        if (QueryFullProcessImageNameW(h_proc, 0, buffer, &size)) {
+        if (QueryFullProcessImageNameW(h_proc, 0, buffer, &size)) 
+        {
             path = QString::fromWCharArray(buffer);
         }
         CloseHandle(h_proc);
@@ -19,18 +22,23 @@ QString WindowsProcessControl::getProcessPath(quint32 pid) {
     return path;
 }
 
-quint32 WindowsProcessControl::getParentPID(quint32 pid) {
+quint32 WindowsProcessControl::getParentPID(quint32 pid) 
+{
     HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (h_snap == INVALID_HANDLE_VALUE) {
+    if (h_snap == INVALID_HANDLE_VALUE) 
+    {
         return 0;
     }
 
     PROCESSENTRY32 entry;
     entry.dwSize = sizeof(entry);
 
-    if (Process32First(h_snap, &entry)) {
-        do {
-            if (entry.th32ProcessID == pid) {
+    if (Process32First(h_snap, &entry)) 
+    {
+        do 
+        {
+            if (entry.th32ProcessID == pid) 
+            {
                 quint32 ppid = entry.th32ParentProcessID;
                 CloseHandle(h_snap);
                 return ppid;
@@ -73,7 +81,8 @@ ProcessDetails WindowsProcessControl::getProcessDetails(quint32 pid, const QList
     return details;
 }
 
-bool WindowsProcessControl::killProcess(quint32 pId) {
+bool WindowsProcessControl::killProcess(quint32 pId) 
+{
 
     if (killProcessGracefully(pId)) 
     {
@@ -81,7 +90,8 @@ bool WindowsProcessControl::killProcess(quint32 pId) {
     }
 
     HANDLE hProc = OpenProcess(PROCESS_TERMINATE, FALSE, pId);
-    if (!hProc) {
+    if (!hProc) 
+    {
         return false;
     }
 
@@ -151,14 +161,17 @@ static QImage qimageFromHICON(HICON hIcon)
     return img;
 }
 
-QIcon getStandardExeIcon() {
+QIcon getStandardExeIcon() 
+{
     SHFILEINFOW sfi = { 0 };
     // Используем пустую строку с флагом, чтобы получить иконку для .exe
     if (SHGetFileInfoW(L"*.exe", FILE_ATTRIBUTE_NORMAL, &sfi, sizeof(sfi),
-        SHGFI_ICON | SHGFI_USEFILEATTRIBUTES | SHGFI_SMALLICON)) {
+        SHGFI_ICON | SHGFI_USEFILEATTRIBUTES | SHGFI_SMALLICON)) 
+    {
         QImage img = qimageFromHICON(sfi.hIcon);
         DestroyIcon(sfi.hIcon);
-        if (!img.isNull()) {
+        if (!img.isNull()) 
+        {
             return QIcon(QPixmap::fromImage(img));
         }
     }
@@ -184,32 +197,53 @@ QIcon WindowsProcessControl::getProcessIcon(quint32 pId)
     return QIcon();
 }
 
-BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
+struct FindWindowContext 
+{
+    DWORD pid;
+    HWND  hwnd; // результат
+};
+
+static BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) 
+{
+    FindWindowContext* ctx = reinterpret_cast<FindWindowContext*>(lParam);
+    if (!ctx) return TRUE;
+
     DWORD pid = 0;
     GetWindowThreadProcessId(hwnd, &pid);
+    if (pid != ctx->pid) return TRUE;
 
-    if (pid == (DWORD)lParam) {
-        // Проверим, является ли окно главным (не дочерним, не невидимым)
-        if (GetParent(hwnd) == NULL && IsWindowVisible(hwnd)) {
-            *(HWND*)lParam = hwnd; // Сохраняем дескриптор
-            return FALSE; // Нашли, останавливаем перечисление
-        }
-    }
-    return TRUE; // Продолжаем искать
+    // Окно верхнего уровня
+    if (!IsWindowVisible(hwnd)) return TRUE;
+    if (GetWindow(hwnd, GW_OWNER) != NULL) 
+        return TRUE; // исключим owned windows (диалоги/вспомогательные)
+
+    /*// тул-окна
+    LONG_PTR ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    if (ex & WS_EX_TOOLWINDOW) return TRUE;*/
+
+    ctx->hwnd = hwnd;
+    return FALSE; // нашли подходящее окно
 }
 
-bool WindowsProcessControl::killProcessGracefully(quint32 pId) {
-    HWND hwnd = 0;
-    LPARAM lParam = (LPARAM)&hwnd;
-    EnumWindows(EnumWindowsProc, lParam);
+bool WindowsProcessControl::killProcessGracefully(quint32 pId) 
+{
+    FindWindowContext ctx{};
+    ctx.pid = static_cast<DWORD>(pId);
+    ctx.hwnd = nullptr;
 
-    if (hwnd != 0) {
-        PostMessage(hwnd, WM_CLOSE, 0, 0);
-        HANDLE hProc = OpenProcess(SYNCHRONIZE, FALSE, pId);
-        if (hProc) {
+    EnumWindows(EnumWindowsProc, reinterpret_cast<LPARAM>(&ctx));
+
+    if (ctx.hwnd) 
+    {
+        PostMessage(ctx.hwnd, WM_CLOSE, 0, 0);
+
+        HANDLE hProc = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(pId));
+        if (hProc) 
+        {
             DWORD result = WaitForSingleObject(hProc, GRACEFUL_KILL_PROCESS_TIMEOUT);
             CloseHandle(hProc);
-            if (result == WAIT_OBJECT_0) {
+            if (result == WAIT_OBJECT_0) 
+            {
                 return true;
             }
         }
@@ -218,15 +252,19 @@ bool WindowsProcessControl::killProcessGracefully(quint32 pId) {
     return false;
 }
 
-quint32 WindowsProcessControl::getThreadCount(quint32 pid) {
+quint32 WindowsProcessControl::getThreadCount(quint32 pid) 
+{
     quint32 count = 0;
     HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
-    if (h_snap != INVALID_HANDLE_VALUE) {
+    if (h_snap != INVALID_HANDLE_VALUE) 
+    {
         THREADENTRY32 te = { 0 };
         te.dwSize = sizeof(te);
-        if (Thread32First(h_snap, &te)) {
+        if (Thread32First(h_snap, &te)) 
+        {
             do {
-                if (te.th32OwnerProcessID == pid) {
+                if (te.th32OwnerProcessID == pid) 
+                {
                     count++;
                 }
             } while (Thread32Next(h_snap, &te));
@@ -236,12 +274,15 @@ quint32 WindowsProcessControl::getThreadCount(quint32 pid) {
     return count;
 }
 
-QDateTime WindowsProcessControl::getStartTime(quint32 pid) {
+QDateTime WindowsProcessControl::getStartTime(quint32 pid) 
+{
     QDateTime dt;
     HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
-    if (h_proc) {
+    if (h_proc) 
+    {
         FILETIME creation_time, exit_time, kernel_time, user_time;
-        if (GetProcessTimes(h_proc, &creation_time, &exit_time, &kernel_time, &user_time)) {
+        if (GetProcessTimes(h_proc, &creation_time, &exit_time, &kernel_time, &user_time)) 
+        {
             // Преобразуем FILETIME в QDateTime
             ULARGE_INTEGER uli;
             uli.LowPart = creation_time.dwLowDateTime;
@@ -258,22 +299,28 @@ QDateTime WindowsProcessControl::getStartTime(quint32 pid) {
     return dt;
 }
 
-quint32 WindowsProcessControl::getChildProcessCount(quint32 pid, const QList<ProcessInfo>& allProcesses) {
+quint32 WindowsProcessControl::getChildProcessCount(quint32 pid, const QList<ProcessInfo>& allProcesses) 
+{
     quint32 count = 0;
-    for (const auto& proc : allProcesses) {
-        if (proc.parentPID == pid) {
+    for (const auto& proc : allProcesses) 
+    {
+        if (proc.parentPID == pid) 
+        {
             count++;
         }
     }
     return count;
 }
 
-quint32 WindowsProcessControl::getHandleCount(quint32 pid) {
+quint32 WindowsProcessControl::getHandleCount(quint32 pid) 
+{
     quint32 count = 0;
     HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
-    if (h_proc) {
+    if (h_proc) 
+    {
         DWORD handle_count = 0;
-        if (GetProcessHandleCount(h_proc, &handle_count)) {
+        if (GetProcessHandleCount(h_proc, &handle_count)) 
+        {
             count = handle_count;
         }
         CloseHandle(h_proc);
@@ -281,10 +328,12 @@ quint32 WindowsProcessControl::getHandleCount(quint32 pid) {
     return count;
 }
 
-int WindowsProcessControl::getPriority(quint32 pid) {
+int WindowsProcessControl::getPriority(quint32 pid) 
+{
     int priority = 0;
     HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
-    if (h_proc) {
+    if (h_proc) 
+    {
         int priority_class = GetPriorityClass(h_proc);
         priority = priority_class;
         CloseHandle(h_proc);
@@ -292,18 +341,24 @@ int WindowsProcessControl::getPriority(quint32 pid) {
     return priority;
 }
 
-QString WindowsProcessControl::getProcessUserName(quint32 pid) {
+QString WindowsProcessControl::getProcessUserName(quint32 pid) 
+{
     QString userName = "Не определен";
     HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
-    if (h_proc) {
+    if (h_proc) 
+    {
         HANDLE h_token = nullptr;
-        if (OpenProcessToken(h_proc, TOKEN_QUERY, &h_token)) {
+        if (OpenProcessToken(h_proc, TOKEN_QUERY, &h_token)) 
+        {
             DWORD size = 0;
             GetTokenInformation(h_token, TokenUser, nullptr, 0, &size);
-            if (size > 0) {
+            if (size > 0) 
+            {
                 auto* buffer = (PTOKEN_USER)malloc(size);
-                if (buffer) {
-                    if (GetTokenInformation(h_token, TokenUser, buffer, size, &size)) {
+                if (buffer) 
+                {
+                    if (GetTokenInformation(h_token, TokenUser, buffer, size, &size)) 
+                    {
                         SID_NAME_USE sid_use;
                         wchar_t name[256];
                         wchar_t domain[256];
@@ -323,21 +378,27 @@ QString WindowsProcessControl::getProcessUserName(quint32 pid) {
     return userName;
 }
 
-QString WindowsProcessControl::getProcessPriorityClass(quint32 pid) {
+QString WindowsProcessControl::getProcessPriorityClass(quint32 pid) 
+{
     QString priority = "Не определен";
     HANDLE h_proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
-    if (h_proc) {
+    if (h_proc) 
+    {
         DWORD priority_class = GetPriorityClass(h_proc);
-        if (priority_class == NORMAL_PRIORITY_CLASS) {
+        if (priority_class == NORMAL_PRIORITY_CLASS) 
+        {
             priority = "Обычный";
         }
-        else if (priority_class == HIGH_PRIORITY_CLASS) {
+        else if (priority_class == HIGH_PRIORITY_CLASS) 
+        {
             priority = "Высокий";
         }
-        else if (priority_class == IDLE_PRIORITY_CLASS) {
+        else if (priority_class == IDLE_PRIORITY_CLASS) 
+        {
             priority = "Низкий";
         }
-        else if (priority_class == REALTIME_PRIORITY_CLASS) {
+        else if (priority_class == REALTIME_PRIORITY_CLASS) 
+        {
             priority = "Реального времени";
         }
         CloseHandle(h_proc);

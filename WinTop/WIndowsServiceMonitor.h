@@ -4,7 +4,8 @@
 #include <IServiceMonitor.h>
 #include <Windows.h>
 
-class WindowsServiceMonitor : public IServiceMonitor {
+class WindowsServiceMonitor : public IServiceMonitor 
+{
 public:
     WindowsServiceMonitor();
     ~WindowsServiceMonitor() override;

@@ -10,7 +10,8 @@
 #include "DataStructs.h"
 #include "IProcessControl.h"
 
-class ProcessDetailsDialog : public QDialog {
+class ProcessDetailsDialog : public QDialog 
+{
     Q_OBJECT
 
 public:

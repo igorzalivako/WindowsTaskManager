@@ -5,8 +5,10 @@ ProcessTableProxyModel::ProcessTableProxyModel(QObject* parent)
 {
 }
 
-QVariant ProcessTableProxyModel::data(const QModelIndex& index, int role) const {
-    if (role == Qt::BackgroundRole || role == Qt::ForegroundRole) {
+QVariant ProcessTableProxyModel::data(const QModelIndex& index, int role) const 
+{
+    if (role == Qt::BackgroundRole || role == Qt::ForegroundRole) 
+    {
         // Передаём роль в исходную модель
         return sourceModel()->data(mapToSource(index), role);
     }

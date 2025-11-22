@@ -5,7 +5,8 @@
 #include "DataStructs.h"
 #include <IProcessControl.h>
 
-class ProcessTableModel : public QAbstractTableModel {
+class ProcessTableModel : public QAbstractTableModel
+{
     Q_OBJECT
 
 public:

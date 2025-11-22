@@ -20,7 +20,8 @@ int ProcessTableModel::columnCount(const QModelIndex& parent) const
     return COLUMNS_COUNT; // PID, Name, CPU, Memory, Disk Read, Disk Write, GPUUsage
 }
 
-static inline int lerp(int a, int b, double t) {
+static inline int lerp(int a, int b, double t) 
+{
     return static_cast<int>(std::lround(a + (b - a) * t));
 }
 
@@ -34,13 +35,13 @@ static inline QColor performanceColor(int value)
 
     int r, g, b;
     if (v <= 50) {
-        double t = v / 50.0; // 0..1
+        double t = v / 50.0; 
         r = lerp(Y.red(), O.red(), t);
         g = lerp(Y.green(), O.green(), t);
         b = lerp(Y.blue(), O.blue(), t);
     }
     else {
-        double t = (v - 50) / 50.0; // 0..1
+        double t = (v - 50) / 50.0;
         r = lerp(O.red(), R.red(), t);
         g = lerp(O.green(), R.green(), t);
         b = lerp(O.blue(), R.blue(), t);
@@ -88,10 +89,12 @@ QVariant ProcessTableModel::data(const QModelIndex& index, int role) const
         }
     }
 
-    if (role == Qt::DecorationRole && index.column() == 1) { // колонка с именем
+    if (role == Qt::DecorationRole && index.column() == 1) 
+    { // колонка с именем
         if (_processControl) {
             // Проверяем кэш
-            if (_iconCache.contains(proc.pid)) {
+            if (_iconCache.contains(proc.pid)) 
+            {
                 return _iconCache[proc.pid];
             }
 
@@ -102,10 +105,12 @@ QVariant ProcessTableModel::data(const QModelIndex& index, int role) const
         }
     }
 
-    if (role == Qt::BackgroundRole) {
+    if (role == Qt::BackgroundRole) 
+    {
         double value = 0;
 
-        switch (index.column()) {
+        switch (index.column()) 
+        {
         case 2: // Загрузка ЦП (%)
             value = proc.cpuUsage;
             break;
@@ -137,9 +142,12 @@ QVariant ProcessTableModel::data(const QModelIndex& index, int role) const
     return QVariant();
 }
 
-QVariant ProcessTableModel::headerData(int section, Qt::Orientation orientation, int role) const {
-    if (role == Qt::DisplayRole && orientation == Qt::Horizontal) {
-        switch (section) {
+QVariant ProcessTableModel::headerData(int section, Qt::Orientation orientation, int role) const 
+{
+    if (role == Qt::DisplayRole && orientation == Qt::Horizontal)
+    {
+        switch (section) 
+        {
         case ptcPID: return "PID";
         case ptcName: return "Name";
         case ptcCPUUsage: return "CPU %";
@@ -155,7 +163,8 @@ QVariant ProcessTableModel::headerData(int section, Qt::Orientation orientation,
 
 ProcessInfo ProcessTableModel::getProcessByRow(int row) const
 {
-    if (row < 0 || row >= _processes.size()) {
+    if (row < 0 || row >= _processes.size()) 
+    {
         return ProcessInfo{};
     }
     return _processes[row];
@@ -166,15 +175,18 @@ void ProcessTableModel::setProcessControl(IProcessControl* control)
     _processControl = control;
 }
 
-void ProcessTableModel::updateData(const QList<ProcessInfo>& data) {
+void ProcessTableModel::updateData(const QList<ProcessInfo>& data) 
+{
     beginResetModel();
     _processes = data;
     _iconCache.clear();
     endResetModel();
 }
 
-void ProcessTableModel::updateDataPartial(const QList<ProcessInfo>& newData) {
-    if (_processes.isEmpty()) {
+void ProcessTableModel::updateDataPartial(const QList<ProcessInfo>& newData) 
+{
+    if (_processes.isEmpty())
+    {
         // Первый запуск — просто заполняем
         updateData(newData);
         return;
@@ -182,25 +194,30 @@ void ProcessTableModel::updateDataPartial(const QList<ProcessInfo>& newData) {
 
     // Создаём мапу по PID для быстрого поиска
     QHash<quint32, ProcessInfo> newMap;
-    for (const auto& proc : newData) {
+    for (const auto& proc : newData) 
+    {
         newMap[proc.pid] = proc;
     }
 
     // Обновляем существующие
-    for (int i = 0; i < _processes.size(); ++i) {
+    for (int i = 0; i < _processes.size(); ++i) 
+    {
         quint32 pid = _processes[i].pid;
-        if (newMap.contains(pid)) {
+        if (newMap.contains(pid)) 
+        {
             // Проверим, изменились ли данные
             const ProcessInfo& newProc = newMap[pid];
             bool changed = false;
 
             if (_processes[i].cpuUsage != newProc.cpuUsage ||
                 _processes[i].memoryUsage != newProc.memoryUsage ||
-                _processes[i].name != newProc.name) {
+                _processes[i].name != newProc.name)
+            {
                 changed = true;
             }
 
-            if (changed) {
+            if (changed) 
+            {
                 _processes[i] = newProc;
                 emit dataChanged(index(i, 0), index(i, columnCount() - 1));
             }
@@ -209,19 +226,23 @@ void ProcessTableModel::updateDataPartial(const QList<ProcessInfo>& newData) {
 
     // Находим новые процессы
     QSet<quint32> oldPids;
-    for (const auto& proc : _processes) {
+    for (const auto& proc : _processes) 
+    {
         oldPids.insert(proc.pid);
     }
 
     QList<ProcessInfo> newProcesses;
-    for (const auto& proc : newData) {
-        if (!oldPids.contains(proc.pid)) {
+    for (const auto& proc : newData) 
+    {
+        if (!oldPids.contains(proc.pid)) 
+        {
             newProcesses.append(proc);
         }
     }
 
     // Добавляем новые
-    if (!newProcesses.isEmpty()) {
+    if (!newProcesses.isEmpty()) 
+    {
         int oldSize = _processes.size();
         beginInsertRows(QModelIndex(), oldSize, oldSize + newProcesses.size() - 1);
         _processes.append(newProcesses);
@@ -230,23 +251,28 @@ void ProcessTableModel::updateDataPartial(const QList<ProcessInfo>& newData) {
 
     // Находим удалённые
     QSet<quint32> newPids;
-    for (const auto& proc : newData) {
+    for (const auto& proc : newData)
+    {
         newPids.insert(proc.pid);
     }
 
     QList<int> removedIndices;
-    for (int i = _processes.size() - 1; i >= 0; --i) {
-        if (!newPids.contains(_processes[i].pid)) {
+    for (int i = _processes.size() - 1; i >= 0; --i) 
+    {
+        if (!newPids.contains(_processes[i].pid)) 
+        {
             removedIndices.append(i);
         }
     }
 
     // Удаляем удалённые
-    if (!removedIndices.isEmpty()) {
+    if (!removedIndices.isEmpty()) 
+    {
         // Сортируем индексы по убыванию
         std::sort(removedIndices.begin(), removedIndices.end(), std::greater<int>());
 
-        for (int idx : removedIndices) {
+        for (int idx : removedIndices) 
+        {
             beginRemoveRows(QModelIndex(), idx, idx);
             _processes.removeAt(idx);
             endRemoveRows();

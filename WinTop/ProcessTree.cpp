@@ -30,10 +30,10 @@ QList<FlatProcessNode> ProcessTree::getFlatTree()
 
         // Определяем parentPID
         if (currentNode->parent) {
-            flatNode.parentPID = currentNode->parent->data.pid; // предполагая, что ProcessInfo имеет поле pid
+            flatNode.parentPID = currentNode->parent->data.pid;
         }
         else {
-            flatNode.parentPID = 0; // или другое значение, обозначающее корневой процесс
+            flatNode.parentPID = 0; // корневой
         }
 
         flatList.append(flatNode);

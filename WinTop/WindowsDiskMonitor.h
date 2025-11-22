@@ -18,14 +18,14 @@ private:
     PDH_HQUERY _diskQuery = nullptr;
     QMap<QString, PDH_HCOUNTER> _diskCountersRead;
     QMap<QString, PDH_HCOUNTER> _diskCountersWrite;
-    QMap<QString, quint64> m_lastDiskReadBytes;
-    QMap<QString, quint64> m_lastDiskWriteBytes;
+    QMap<QString, quint64> _lastDiskReadBytes;
+    QMap<QString, quint64> _lastDiskWriteBytes;
     qint64 _lastDiskUpdateTime = 0;
 
     // Для статистики процессов
-    QMap<quint32, quint64> m_lastProcessReadBytes;
-    QMap<quint32, quint64> m_lastProcessWriteBytes;
-    qint64 m_lastProcessUpdateTime = 0;
+    QMap<quint32, quint64> _lastProcessReadBytes;
+    QMap<quint32, quint64> _lastProcessWriteBytes;
+    qint64 _lastProcessUpdateTime = 0;
 
     // Вспомогательные
     QList<QString> getLogicalDriveStrings();

@@ -14,7 +14,8 @@ ProcessTreeModel::ProcessTreeModel(QObject* parent)
     setHorizontalHeaderLabels({ "Name", "PID", "CPU %", "Memory (MB)", "Disk Read (MB)", "Disk Write (MB)", "GPU %"});
 }
 
-void ProcessTreeModel::setTreeBuilder(std::unique_ptr<IProcessTreeBuilder> builder) {
+void ProcessTreeModel::setTreeBuilder(std::unique_ptr<IProcessTreeBuilder> builder)
+{
     _treeBuilder = std::move(builder);
 }
 
@@ -35,11 +36,14 @@ QList<QStandardItem*> ProcessTreeModel::createTreeRow(const ProcessInfo& process
     treeRow[tcWriteBytes] = new QStandardItem(QString::number(processInfo.diskWriteBytes / 1024 / 1024) + " MB");
     treeRow[tcGPUUsage] = new QStandardItem(QString::number(processInfo.gpuUsage) + "%");
     
-    if (_processControl) {
-        if (_iconCache.contains(processInfo.pid)) {
+    if (_processControl) 
+    {
+        if (_iconCache.contains(processInfo.pid))
+        {
             treeRow[tcName]->setIcon(_iconCache[processInfo.pid]);
         }
-        else {
+        else
+        {
             QIcon icon = _processControl->getProcessIcon(processInfo.pid);
             _iconCache[processInfo.pid] = icon;
             treeRow[tcName]->setIcon(icon);
@@ -61,7 +65,8 @@ ProcessItemRow ProcessTreeModel::createProcessItemRow(QList<QStandardItem*> row)
     return ProcessItemRow(row[tcName], row[tcPID], row[tcCPU], row[tcMemory], row[tcReadBytes], row[tcWriteBytes], row[tcGPUUsage]);
 }
 
-void ProcessTreeModel::updateData(const QList<ProcessInfo>& data) {
+void ProcessTreeModel::updateData(const QList<ProcessInfo>& data) 
+{
     if (!_treeBuilder) return;
 
     auto newTree = _treeBuilder->buildTree(data);
@@ -82,8 +87,10 @@ void ProcessTreeModel::updateData(const QList<ProcessInfo>& data) {
         }
 
         // Фаза 1: добавить корневые (parentPID == 0)
-        for (const auto& n : flatTree) {
-            if (n.parentPID == 0) {
+        for (const auto& n : flatTree) 
+        {
+            if (n.parentPID == 0) 
+            {
                 QList<QStandardItem*> row = createTreeRow(n.info);
                 invisibleRootItem()->appendRow(row);
                 _pidToRow.insert(n.info.pid, createProcessItemRow(row));
@@ -101,11 +108,14 @@ void ProcessTreeModel::updateData(const QList<ProcessInfo>& data) {
             }
         }
 
-        while (progress) {
+        while (progress)
+        {
             progress = false;
-            for (const auto& n : flatTree) {
+            for (const auto& n : flatTree)
+            {
                 // Проверим, есть ли родитель в модели
-                if (!placed.contains(n.info.pid) && _pidToRow.contains(n.parentPID)) {
+                if (!placed.contains(n.info.pid) && _pidToRow.contains(n.parentPID))
+                {
                     QStandardItem* parentItem = (n.parentPID == 0)
                         ? invisibleRootItem()
                         : _pidToRow[n.parentPID].nameItem;
@@ -127,7 +137,8 @@ void ProcessTreeModel::updateData(const QList<ProcessInfo>& data) {
     _currentFlatTree = flatTree;
 }
 
-static inline int lerp(int a, int b, double t) {
+static inline int lerp(int a, int b, double t) 
+{
     return static_cast<int>(std::lround(a + (b - a) * t));
 }
 
@@ -156,7 +167,8 @@ static inline QColor performanceColor(int value)
     return QColor(r, g, b);
 }
 
-QVariant ProcessTreeModel::data(const QModelIndex& index, int role) const {
+QVariant ProcessTreeModel::data(const QModelIndex& index, int role) const
+{
     if (!index.isValid())
     {
         return QVariant();
@@ -224,17 +236,20 @@ QVariant ProcessTreeModel::data(const QModelIndex& index, int role) const {
         }
     }
 
-    if (role == Qt::BackgroundRole) {
+    if (role == Qt::BackgroundRole)
+    {
         double value = 0;
 
         switch (index.column()) {
         case 2: // Загрузка ЦП (%)
         {
             QString text = QStandardItemModel::data(index, Qt::DisplayRole).toString();
-            if (text.endsWith('%')) {
+            if (text.endsWith('%')) 
+            {
                 value = text.left(text.length() - 1).toDouble();
             }
-            else {
+            else 
+            {
                 value = 0.0;
             }
             break;
@@ -243,10 +258,12 @@ QVariant ProcessTreeModel::data(const QModelIndex& index, int role) const {
         case 3: // Память (MB)
         {
             QString text = QStandardItemModel::data(index, Qt::DisplayRole).toString();
-            if (text.endsWith(" MB")) {
+            if (text.endsWith(" MB")) 
+            {
                 value = text.left(text.length() - 3).toDouble() / 16.0 / 1024 * 100;
             }
-            else {
+            else 
+            {
                 value = 0.0;
             }
 
@@ -256,10 +273,12 @@ QVariant ProcessTreeModel::data(const QModelIndex& index, int role) const {
         case 4: // Disk Read (MB)
         {
             QString text = QStandardItemModel::data(index, Qt::DisplayRole).toString();
-            if (text.endsWith(" MB")) {
+            if (text.endsWith(" MB")) 
+            {
                 value = text.left(text.length() - 3).toDouble() / 1000 * 100;
             }
-            else {
+            else 
+            {
                 value = 0.0;
             }
 
@@ -269,10 +288,12 @@ QVariant ProcessTreeModel::data(const QModelIndex& index, int role) const {
         case 5: // Disk Write (MB)
         {
             QString text = QStandardItemModel::data(index, Qt::DisplayRole).toString();
-            if (text.endsWith(" MB")) {
+            if (text.endsWith(" MB"))
+            {
                 value = text.left(text.length() - 3).toDouble() / 1000 * 100;
             }
-            else {
+            else 
+            {
                 value = 0.0;
             }
 
@@ -281,10 +302,12 @@ QVariant ProcessTreeModel::data(const QModelIndex& index, int role) const {
         case 6:
         {
             QString text = QStandardItemModel::data(index, Qt::DisplayRole).toString();
-            if (text.endsWith('%')) {
+            if (text.endsWith('%'))
+            {
                 value = text.left(text.length() - 1).toDouble();
             }
-            else {
+            else 
+            {
                 value = 0.0;
             }
             break;
@@ -304,31 +327,36 @@ static void collectChildrenPids(const QHash<quint32, ProcessItemRow>& pidToRow,
     QSet<quint32>& outPids)
 {
     if (!parentNameItem) return;
-    for (int r = 0; r < parentNameItem->rowCount(); ++r) {
+    for (int r = 0; r < parentNameItem->rowCount(); ++r)
+    {
         QStandardItem* childNameItem = parentNameItem->child(r, 0);
         if (!childNameItem) continue;
         bool ok = false;
         quint32 childPid = childNameItem->data(Qt::UserRole + 1).toUInt(&ok);
         if (!ok) continue;
-        if (!outPids.contains(childPid)) {
+        if (!outPids.contains(childPid)) 
+        {
             outPids.insert(childPid);
             collectChildrenPids(pidToRow, childNameItem, outPids);
         }
     }
 }
 
-void ProcessTreeModel::updateTreeFromNewFlatList(const QList<FlatProcessNode>& newTree) {
-    // Построим быстрый доступ по PID и список новых PID
+void ProcessTreeModel::updateTreeFromNewFlatList(const QList<FlatProcessNode>& newTree)
+{
+    // Построим хеш-таблицу по PID и список новых PID
     QHash<quint32, FlatProcessNode> newByPid;
     newByPid.reserve(newTree.size());
     QSet<quint32> newPids;
-    for (const auto& node : newTree) {
+    for (const auto& node : newTree) 
+    {
         newByPid.insert(node.info.pid, node);
         newPids.insert(node.info.pid);
     }
 
     // 1) Обновить метрики существующих узлов
-    for (auto it = _pidToRow.begin(); it != _pidToRow.end(); ++it) {
+    for (auto it = _pidToRow.begin(); it != _pidToRow.end(); ++it) 
+    {
         quint32 pid = it.key();
         if (newByPid.contains(pid)) 
         {
@@ -391,7 +419,8 @@ void ProcessTreeModel::updateTreeFromNewFlatList(const QList<FlatProcessNode>& n
                 it = toPlace.erase(it);
                 progress = true;
             }
-            else {
+            else 
+            {
                 ++it;
             }
         }
@@ -408,7 +437,8 @@ void ProcessTreeModel::updateTreeFromNewFlatList(const QList<FlatProcessNode>& n
 
     // Развернём каждый в поддерево, чтобы удалить детей до родителя
     QSet<quint32> allToRemove;
-    for (quint32 pid : std::as_const(missingPids)) {
+    for (quint32 pid : std::as_const(missingPids)) 
+    {
         if (_pidToRow.contains(pid))
         {
             QStandardItem* nameItem = _pidToRow[pid].nameItem;
@@ -420,8 +450,6 @@ void ProcessTreeModel::updateTreeFromNewFlatList(const QList<FlatProcessNode>& n
     clearImageCashe(allToRemove);
 
     // Удаляем постфактум: сначала листья
-    // Для стабильности удалим в порядке «глубокие сначала»
-    // Подсчитаем глубину по иерархии QStandardItem
     auto depthOf = [](QStandardItem* item) 
     {
         int d = 0;
@@ -444,24 +472,29 @@ void ProcessTreeModel::updateTreeFromNewFlatList(const QList<FlatProcessNode>& n
         {
             ProcessItemRow row = _pidToRow[r.pid]; // копия, чтобы не держать ссылку
             QStandardItem* nameItem = row.nameItem;
-            if (!nameItem) {
+            if (!nameItem)
+            {
                 _pidToRow.remove(r.pid);
                 continue;
             }
             QStandardItem* parent = nameItem->parent();
-            if (parent) {
+            if (parent) 
+            {
                 // Найти фактический индекс по указателю, т.к. row() может быть устаревшим
                 int idx = -1;
-                for (int i = 0; i < parent->rowCount(); ++i) {
+                for (int i = 0; i < parent->rowCount(); ++i) 
+                {
                     if (parent->child(i, 0) == nameItem) { idx = i; break; }
                 }
                 if (idx >= 0) parent->removeRow(idx);
             }
-            else {
+            else 
+            {
                 // Узел на корне
                 QStandardItem* root = invisibleRootItem();
                 int idx = -1;
-                for (int i = 0; i < root->rowCount(); ++i) {
+                for (int i = 0; i < root->rowCount(); ++i) 
+                {
                     if (root->child(i, 0) == nameItem) { idx = i; break; }
                 }
                 if (idx >= 0) root->removeRow(idx);

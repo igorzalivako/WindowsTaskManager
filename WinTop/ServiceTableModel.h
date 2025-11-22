@@ -4,7 +4,8 @@
 #include <QList>
 #include "IServiceMonitor.h"
 
-class ServiceTableModel : public QAbstractTableModel {
+class ServiceTableModel : public QAbstractTableModel 
+{
     Q_OBJECT
 
 public:
@@ -18,5 +19,5 @@ public:
     void updateData(const QList<ServiceInfo>& data);
 
 private:
-    QList<ServiceInfo> m_services;
+    QList<ServiceInfo> _services;
 };

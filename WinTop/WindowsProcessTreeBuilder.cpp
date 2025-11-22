@@ -1,7 +1,8 @@
 #include "WindowsProcessTreeBuilder.h"
 #include <QHash>
 
-ProcessTree WindowsProcessTreeBuilder::buildTree(const QList<ProcessInfo>& processes) {
+ProcessTree WindowsProcessTreeBuilder::buildTree(const QList<ProcessInfo>& processes) 
+{
     ProcessTree tree;
     tree.setRoot(std::make_shared<ProcessTreeNode>(ProcessInfo{}));
 
@@ -16,15 +17,18 @@ ProcessTree WindowsProcessTreeBuilder::buildTree(const QList<ProcessInfo>& proce
     }
 
     // Теперь построим иерархию
-    for (auto it = nodeMap.begin(); it != nodeMap.end(); ++it) {
+    for (auto it = nodeMap.begin(); it != nodeMap.end(); ++it) 
+    {
         quint32 ppid = it.value()->data.parentPID;
         quint32 pid = it.value()->data.pid;
         auto parent = nodeMap.value(ppid, nullptr);
-        if (parent) {
+        if (parent)
+        {
             it.value()->parent = parent;
             parent->children.append(it.value());
         }
-        else {
+        else 
+        {
             // Если родитель не найден, добавим в корень
             it.value()->parent = tree.getRoot();
             tree.getRoot()->children.append(it.value());

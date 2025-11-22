@@ -31,8 +31,6 @@ struct ProcessInfo
 	double cpuUsage = 0.0;
 	quint64 memoryUsage = 0;
 	quint64 workingSetSize = 0;
-	QString status;
-	qint64 updateTimestamp = 0;
 
 	quint64 diskReadBytes = 0;
 	quint64 diskWriteBytes = 0;
@@ -61,7 +59,7 @@ struct ProcessDetails
 
 struct DiskInfo 
 {
-	QString name; // например, "C:"
+	QString name; 
 	quint64 totalBytes = 0;
 	quint64 freeBytes = 0;
 };
@@ -71,10 +69,11 @@ struct DisksInfo
 	QList<DiskInfo> disks;
 	double readBytesPerSec = 0.0;
 	double writeBytesPerSec = 0.0;
-	double ioBytesPerSec = 0.0; // сумма
+	double ioBytesPerSec = 0.0;
 };
 
-struct ProcessDiskInfo {
+struct ProcessDiskInfo 
+{
 	quint32 pid = 0;
 	quint64 bytesRead = 0;
 	quint64 bytesWritten = 0;
@@ -82,24 +81,22 @@ struct ProcessDiskInfo {
 	quint64 writeOperations = 0;
 };
 
-struct NetworkInterfaceInfo {
-	QString name; // например, "Ethernet", "Wi-Fi"
+struct NetworkInterfaceInfo 
+{
+	QString name; 
 	QString description;
-	QString ipAddress;
 	quint64 bytesReceived = 0;
 	quint64 bytesSent = 0;
 	quint64 packetsReceived = 0;
 	quint64 packetsSent = 0;
 	double receiveBytesPerSec = 0.0;
 	double sendBytesPerSec = 0.0;
-	bool isUp = false;
 };
 
 struct GPUInfo 
 {
 	QString vendor;
 	QString name;
-	double loadPercent = 0.0;
 	quint64 totalMemoryBytes = 0;
 	quint64 usedMemoryBytes = 0;
 	double temperatureCelsius = 0.0;

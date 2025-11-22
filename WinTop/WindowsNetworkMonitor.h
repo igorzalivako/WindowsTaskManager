@@ -4,7 +4,8 @@
 #include "WindowsNetworkMonitor.h"
 #include "DataStructs.h"
 
-class WindowsNetworkMonitor : public INetworkMonitor {
+class WindowsNetworkMonitor : public INetworkMonitor 
+{
 public:
     WindowsNetworkMonitor();
     ~WindowsNetworkMonitor();

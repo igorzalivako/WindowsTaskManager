@@ -3,7 +3,8 @@
 #include "IProcessControl.h"
 #include <Windows.h>
 
-class WindowsProcessControl : public IProcessControl {
+class WindowsProcessControl : public IProcessControl 
+{
 public:
     ProcessDetails getProcessDetails(quint32 pid, const QList<ProcessInfo> processes) override;
     bool killProcess(quint32 pId) override;

@@ -1,27 +1,33 @@
-#include "ServiceTableModel.h"
+ï»¿#include "ServiceTableModel.h"
 
 ServiceTableModel::ServiceTableModel(QObject* parent)
-    : QAbstractTableModel(parent) {
+    : QAbstractTableModel(parent) 
+{
 }
 
-int ServiceTableModel::rowCount(const QModelIndex& parent) const {
-    return m_services.size();
+int ServiceTableModel::rowCount(const QModelIndex& parent) const 
+{
+    return _services.size();
 }
 
-int ServiceTableModel::columnCount(const QModelIndex& parent) const {
-    return 3; // Èìÿ, Îïèñàíèå, Ñîñòîÿíèå
+int ServiceTableModel::columnCount(const QModelIndex& parent) const
+{
+    return 3; // Ð˜Ð¼Ñ, ÐžÐ¿Ð¸ÑÐ°Ð½Ð¸Ðµ, Ð¡Ð¾ÑÑ‚Ð¾ÑÐ½Ð¸Ðµ
 }
 
-QVariant ServiceTableModel::data(const QModelIndex& index, int role) const {
-    if (!index.isValid() || index.row() >= m_services.size()) {
+QVariant ServiceTableModel::data(const QModelIndex& index, int role) const 
+{
+    if (!index.isValid() || index.row() >= _services.size()) 
+    {
         return QVariant();
     }
 
-    const auto& svc = m_services[index.row()];
+    const auto& svc = _services[index.row()];
 
     if (role == Qt::DisplayRole) 
     {
-        switch (index.column()) {
+        switch (index.column())
+        {
         case 0:
             return svc.name;
         case 1:
@@ -51,9 +57,12 @@ QVariant ServiceTableModel::data(const QModelIndex& index, int role) const {
     return QVariant();
 }
 
-QVariant ServiceTableModel::headerData(int section, Qt::Orientation orientation, int role) const {
-    if (role == Qt::DisplayRole && orientation == Qt::Horizontal) {
-        switch (section) {
+QVariant ServiceTableModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+    if (role == Qt::DisplayRole && orientation == Qt::Horizontal) 
+    {
+        switch (section)
+        {
         case 0:
             return "Name";
         case 1:
@@ -67,8 +76,9 @@ QVariant ServiceTableModel::headerData(int section, Qt::Orientation orientation,
     return QAbstractTableModel::headerData(section, orientation, role);
 }
 
-void ServiceTableModel::updateData(const QList<ServiceInfo>& data) {
+void ServiceTableModel::updateData(const QList<ServiceInfo>& data)
+{
     beginResetModel();
-    m_services = data;
+    _services = data;
     endResetModel();
 }
