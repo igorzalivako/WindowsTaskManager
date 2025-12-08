@@ -45,6 +45,7 @@ QMap<quint32, ProcessGPUInfo> WindowsGPUMonitor::getProcessGPUInfo()
                 gpuProcessInfo.gpuUtilization = utilization[i].smUtil;
                 gpusPerProcessInfo[gpuProcessInfo.pid] = gpuProcessInfo;
             }
+            delete[] utilization;
         }
     }
     
@@ -181,14 +182,14 @@ int WindowsGPUMonitor::GetAdapterActiveStatus(int adapterId, int& active) const
     return result;
 }
 
-#pragma runtime_checks("s", off)
+//#pragma runtime_checks("s", off)
 int WindowsGPUMonitor::GetUsedMemory(int adapterId) const
 {
     int* vramUsage = new int;
     int result = ADL2_Adapter_VRAMUsage_Get(context, adapterId, vramUsage);
     return *vramUsage;
 }
-#pragma runtime_checks("s", on)
+//#pragma runtime_checks("s", on)
 
 QList<GPUInfo> WindowsGPUMonitor::getAMDGPUInfo() 
 {

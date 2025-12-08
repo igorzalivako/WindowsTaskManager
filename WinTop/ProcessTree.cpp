@@ -10,7 +10,8 @@ QList<FlatProcessNode> ProcessTree::getFlatTree()
 {
     QList<FlatProcessNode> flatList;
 
-    if (!_root) {
+    if (!_root) 
+    {
         return flatList; // возвращаем пустой список, если дерево пустое
     }
 
@@ -21,7 +22,8 @@ QList<FlatProcessNode> ProcessTree::getFlatTree()
         queue.enqueue(child);
     }
 
-    while (!queue.isEmpty()) {
+    while (!queue.isEmpty()) 
+    {
         auto currentNode = queue.dequeue();
 
         // —оздаем FlatProcessNode дл€ текущего узла
@@ -29,17 +31,20 @@ QList<FlatProcessNode> ProcessTree::getFlatTree()
         flatNode.info = currentNode->data;
 
         // ќпредел€ем parentPID
-        if (currentNode->parent) {
+        if (currentNode->parent)
+        {
             flatNode.parentPID = currentNode->parent->data.pid;
         }
-        else {
+        else 
+        {
             flatNode.parentPID = 0; // корневой
         }
 
         flatList.append(flatNode);
 
         // ƒобавл€ем всех детей в очередь дл€ обработки
-        for (const auto& child : currentNode->children) {
+        for (const auto& child : currentNode->children) 
+        {
             queue.enqueue(child);
         }
     }

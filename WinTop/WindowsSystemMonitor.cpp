@@ -12,9 +12,10 @@ WindowsSystemMonitor::WindowsSystemMonitor(IDiskMonitor* diskMonitor, INetworkMo
     initCpuCoreCounters();
 }
 
-bool WindowsSystemMonitor::calculateCpuUsage(double& cpu_usage)
+bool WindowsSystemMonitor::calculateCpuUsage(double& cpuUsage)
 {
     FILETIME idle_time, kernel_time, user_time;
+    // время в 100нс интервалах. kernel_time включает в себя время простоя
     if (!GetSystemTimes(&idle_time, &kernel_time, &user_time)) 
     {
         return false;
@@ -37,7 +38,7 @@ bool WindowsSystemMonitor::calculateCpuUsage(double& cpu_usage)
         _lastKernelTime = kernel;
         _lastUserTime = user;
         _initialized = true;
-        cpu_usage = 0.0;
+        cpuUsage = 0.0;
         return true;
     }
 
@@ -47,11 +48,11 @@ bool WindowsSystemMonitor::calculateCpuUsage(double& cpu_usage)
 
     if (total_diff.QuadPart == 0)
     {
-        cpu_usage = 0.0;
+        cpuUsage = 0.0;
         return true;
     }
 
-    cpu_usage = 100.0 - (idle_diff.QuadPart * 100.0 / total_diff.QuadPart);
+    cpuUsage = 100.0 - (idle_diff.QuadPart * 100.0 / total_diff.QuadPart);
 
     _lastIdleTime = idle;
     _lastKernelTime = kernel;
@@ -266,11 +267,13 @@ double WindowsSystemMonitor::getBaseCpuSpeedGHz()
     HKEY hKey;
     DWORD speed = 0;
     DWORD size = sizeof(speed);
-
+    // Открывает указанный раздел реестра
     if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
         L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
-        0, KEY_READ, &hKey) == ERROR_SUCCESS) {
-        if (RegQueryValueExW(hKey, L"~MHz", NULL, NULL, (LPBYTE)&speed, &size) == ERROR_SUCCESS) {
+        0, KEY_READ, &hKey) == ERROR_SUCCESS) 
+    {
+        if (RegQueryValueExW(hKey, L"~MHz", NULL, NULL, (LPBYTE)&speed, &size) == ERROR_SUCCESS) 
+        {
             RegCloseKey(hKey);
             return (double)speed / 1000.0; // MГц -> ГГц
         }
@@ -321,7 +324,7 @@ quint32 WindowsSystemMonitor::getLogicalProcessorCount()
         {
             if (buffer[i].Relationship == RelationProcessorCore) 
             {
-                logicalCount += __popcnt64(buffer[i].ProcessorMask);
+                logicalCount += __popcnt64(buffer[i].ProcessorMask);   // Получает число установленных бит в переменной (число логических процессоров)
             }
         }
         free(buffer);
@@ -385,6 +388,8 @@ QList<double> WindowsSystemMonitor::getCpuCoreUsage()
 
 bool WindowsSystemMonitor::initCpuCoreCounters() 
 {
+    // Performance Data Helper. NULL - данные собираются в реальном времени
+    // Создает новый запрос, используемый для управления коллекцией данных производительности.
     if (PdhOpenQuery(NULL, 0, &_cpuCoreQuery) != ERROR_SUCCESS) 
     {
         return false;

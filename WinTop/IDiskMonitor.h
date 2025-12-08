@@ -2,9 +2,10 @@
 
 #include "DataStructs.h"
 
-class IDiskMonitor {
+class IDiskMonitor 
+{
 public:
-    virtual DisksInfo getDiskInfo() = 0;
+    virtual DisksInfo getDisksInfo() = 0;
     virtual QMap<quint32, ProcessDiskInfo> getProcessDiskInfo() = 0;
     virtual ~IDiskMonitor() = default;
 };

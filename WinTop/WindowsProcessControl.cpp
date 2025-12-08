@@ -115,14 +115,14 @@ static QImage qimageFromHICON(HICON hIcon)
     const int w = bmColor.bmWidth;
     const int h = bmColor.bmHeight;
 
-    // Подготовим DIB секцию для извлечения пикселей в формате BGRA
+    // Подготовим DIB секцию для извлечения пикселей
     BITMAPINFO bmi = {};
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     bmi.bmiHeader.biWidth = w;
-    bmi.bmiHeader.biHeight = -h; // top-down
+    bmi.bmiHeader.biHeight = -h; // отрицательная высота означает top - down изображение(первая строка - верхняя)
     bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
+    bmi.bmiHeader.biBitCount = 32; // 32 бита на пиксель
+    bmi.bmiHeader.biCompression = BI_RGB; // без сжатия
 
     void* bits = nullptr;
     HDC hdc = GetDC(nullptr);
@@ -130,10 +130,10 @@ static QImage qimageFromHICON(HICON hIcon)
     HDC memdc = CreateCompatibleDC(hdc);
     HGDIOBJ oldBmp = SelectObject(memdc, dib);
 
-    // Растеризуем иконку в DIB
+    // Рисуем иконку в DIB
     DrawIconEx(memdc, 0, 0, hIcon, w, h, 0, nullptr, DI_NORMAL);
 
-    // Копируем в QImage (формат RGBA8888 или premultiplied)
+    // Копируем в QImage
     QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
     if (img.isNull()) {
         SelectObject(memdc, oldBmp);
@@ -145,7 +145,6 @@ static QImage qimageFromHICON(HICON hIcon)
         return QImage();
     }
 
-    // bits сейчас в BGRA; QImage::Format_ARGB32_Premultiplied — тоже BGRA на little-endian,
     // так что можно копировать напрямую.
     memcpy(img.bits(), bits, size_t(w) * size_t(h) * 4);
 
@@ -290,8 +289,8 @@ QDateTime WindowsProcessControl::getStartTime(quint32 pid)
             // FILETIME - время в 100-наносекундных интервалах с 1601-01-01 (UTC)
             // QDateTime ожидает миллисекунды с 1970-01-01 (Unix epoch)
             qint64 epoch_offset = 11644473600LL * 10000000LL; // разница между 1601 и 1970 в 100ns
-            qint64 unix_time_100ns = uli.QuadPart - epoch_offset;
-            qint64 unix_time_ms = unix_time_100ns / 10000;
+            qint64 unix_time_100ns = uli.QuadPart - epoch_offset; // приводим к времени с 1970
+            qint64 unix_time_ms = unix_time_100ns / 10000; // в милисекунды
             dt = QDateTime::fromMSecsSinceEpoch(unix_time_ms);
         }
         CloseHandle(h_proc);
@@ -351,6 +350,7 @@ QString WindowsProcessControl::getProcessUserName(quint32 pid)
         if (OpenProcessToken(h_proc, TOKEN_QUERY, &h_token)) 
         {
             DWORD size = 0;
+            // Извлекает указанный тип сведений о маркере доступа
             GetTokenInformation(h_token, TokenUser, nullptr, 0, &size);
             if (size > 0) 
             {
@@ -364,7 +364,8 @@ QString WindowsProcessControl::getProcessUserName(quint32 pid)
                         wchar_t domain[256];
                         DWORD name_len = 256;
                         DWORD domain_len = 256;
-                        if (LookupAccountSidW(nullptr, buffer->User.Sid, name, &name_len, domain, &domain_len, &sid_use)) {
+                        // Пытается по sid получить "человеческое" имя пользователя
+                        if (LookupAccountSidW(nullptr, buffer->User.Sid, name, &name_len, domain, &domain_len, &sid_use)) {  // SID (Security Identifier) — уникальный двоичный идентификатор субъекта безопасности в Windows: пользователя, группы, компьютера, логон-сессии и т. п.
                             userName = QString::fromWCharArray(name);
                         }
                     }

@@ -61,7 +61,7 @@ private slots:
 private:
     void setupUI();
 
-    std::unique_ptr<IServiceControl> m_serviceControl;
+    std::unique_ptr<IServiceControl> _serviceControl;
     std::unique_ptr<IProcessControl> _processControl;
     std::unique_ptr<IProcessTreeBuilder> _treeBuilder;
     QList<ProcessInfo> _lastProcesses;

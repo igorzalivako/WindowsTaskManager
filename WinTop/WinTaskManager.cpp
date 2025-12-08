@@ -12,7 +12,7 @@
 WinTaskManager::WinTaskManager(QWidget *parent)
     : QMainWindow(parent)
 {
-    m_serviceControl = std::make_unique<WindowsServiceControl>();
+    _serviceControl = std::make_unique<WindowsServiceControl>();
     _processControl = std::make_unique<WindowsProcessControl>();
     _treeBuilder = std::make_unique<WindowsProcessTreeBuilder>();
 
@@ -337,7 +337,7 @@ void WinTaskManager::setUpServicesTab()
         {
         if (!_selectedServiceName.isEmpty()) 
         {
-            if (m_serviceControl.get()->startService(_selectedServiceName)) 
+            if (_serviceControl.get()->startService(_selectedServiceName)) 
             {
                 QMessageBox::information(this, "Успешно", "Служба запущена.");
             }
@@ -352,7 +352,7 @@ void WinTaskManager::setUpServicesTab()
         {
         if (!_selectedServiceName.isEmpty()) 
         {
-            if (m_serviceControl.get()->stopService(_selectedServiceName)) 
+            if (_serviceControl.get()->stopService(_selectedServiceName)) 
             {
                 QMessageBox::information(this, "Успешно", "Служба остановлена.");
             }
@@ -942,7 +942,6 @@ void WinTaskManager::onDataReady(const UpdateData& data)
     }
 
     updatePerformanceTab(data.systemInfo, data.disks, data.networkInterfaces, data.gpus);
-    static int i = 0;
 }
 
 QStringList WinTaskManager::getExpandedItems(QTreeWidget* tree) 

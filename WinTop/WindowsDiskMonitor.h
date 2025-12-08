@@ -10,7 +10,7 @@ class WindowsDiskMonitor : public IDiskMonitor {
 public:
     WindowsDiskMonitor();
     ~WindowsDiskMonitor();
-    DisksInfo getDiskInfo() override;
+    DisksInfo getDisksInfo() override;
     QMap<quint32, ProcessDiskInfo> getProcessDiskInfo() override;
 
 private:

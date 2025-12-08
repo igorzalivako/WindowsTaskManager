@@ -2,7 +2,8 @@
 
 #include "DataStructs.h"
 
-class INetworkMonitor {
+class INetworkMonitor 
+{
 public:
     virtual QList<NetworkInterfaceInfo> getNetworkInfo() = 0;
     virtual ~INetworkMonitor() = default;

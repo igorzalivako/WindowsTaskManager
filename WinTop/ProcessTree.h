@@ -2,17 +2,20 @@
 
 #include "DataStructs.h"
 
-struct ProcessTreeNode {
+struct ProcessTreeNode
+{
     ProcessInfo data;
     std::shared_ptr<ProcessTreeNode> parent;
     QList<std::shared_ptr<ProcessTreeNode>> children;
 
     explicit ProcessTreeNode(const ProcessInfo& info, std::shared_ptr<ProcessTreeNode> p = nullptr)
-        : data(info), parent(p) {
+        : data(info), parent(p) 
+    {
     }
 };
 
-class ProcessTree {
+class ProcessTree
+{
 public:
     std::shared_ptr<ProcessTreeNode> getRoot();
     QList<FlatProcessNode> getFlatTree();

@@ -23,7 +23,6 @@ bool WindowsDiskMonitor::initDiskCounters()
 {
     if (PdhOpenQuery(NULL, 0, &_diskQuery) != ERROR_SUCCESS) 
     {
-        qDebug() << "PdhOpenQuery failed";
         return false;
     }
 
@@ -49,7 +48,7 @@ bool WindowsDiskMonitor::initDiskCounters()
     return true;
 }
 
-DisksInfo WindowsDiskMonitor::getDiskInfo() 
+DisksInfo WindowsDiskMonitor::getDisksInfo() 
 {
     DisksInfo disksInfo;
     qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
@@ -57,18 +56,6 @@ DisksInfo WindowsDiskMonitor::getDiskInfo()
     _lastDiskUpdateTime = currentTime;
 
     PDH_STATUS status = PdhCollectQueryData(_diskQuery);
-    if (status != ERROR_SUCCESS) 
-    {
-        for (const QString& drive : getLogicalDriveStrings()) 
-        {
-            DiskInfo info;
-            info.name = drive;
-            info.totalBytes = getFileSystemTotalSpace(drive);
-            info.freeBytes = getFileSystemFreeSpace(drive);
-            disksInfo.disks.append(info);
-        }
-        return disksInfo;
-    }
 
     PDH_FMT_COUNTERVALUE valueRead, valueWrite;
     PDH_HCOUNTER counterRead = _diskCountersRead.value("_Total", nullptr);

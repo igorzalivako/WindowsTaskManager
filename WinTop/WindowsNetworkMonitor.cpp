@@ -28,7 +28,7 @@ QList<NetworkInterfaceInfo> WindowsNetworkMonitor::getNetworkInfo()
     double elapsedSec = (currentTime - _lastUpdateTime) / 1000.0;
     _lastUpdateTime = currentTime;
 
-    // Получаем таблицу интерфейсов
+    // Получаем таблицу интерфейсов (из Management Information Base)
     MIB_IFTABLE* pIfTable = nullptr;
     ULONG dwSize = 0;
     DWORD dwRetVal = 0;

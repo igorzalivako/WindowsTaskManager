@@ -24,7 +24,7 @@ void DataUpdater::update()
     data.systemInfo = _systemMonitor->getSystemInfo();
     data.processes = _systemMonitor->getProcesses();
     data.services = _serviceMonitor->getServices();
-    data.disks = _diskMonitor->getDiskInfo();
+    data.disks = _diskMonitor->getDisksInfo();
     data.gpus = _gpuMonitor->getGPUInfo();
     data.networkInterfaces = _networkMonitor->getNetworkInfo();
     emit dataReady(data);

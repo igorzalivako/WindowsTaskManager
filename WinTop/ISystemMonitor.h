@@ -2,7 +2,8 @@
 
 #include "DataStructs.h"
 
-class ISystemMonitor {
+class ISystemMonitor 
+{
 public:
 	virtual ~ISystemMonitor() = default;
 	virtual SystemInfo getSystemInfo() = 0;

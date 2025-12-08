@@ -3,7 +3,8 @@
 #include "DataStructs.h"
 #include <QIcon.h>
 
-class IProcessControl {
+class IProcessControl 
+{
 public:
     virtual ProcessDetails getProcessDetails(quint32 pId, const QList<ProcessInfo> processes) = 0;
     virtual bool killProcess(quint32 pId) = 0;

@@ -31,7 +31,7 @@ class DataUpdater : public QObject
 
 public:
     DataUpdater(quint32 updateIntervalMs = 1000);
-    void start(); // новый метод
+    void start(); 
     void stop();
 
 public slots:
