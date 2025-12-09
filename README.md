@@ -21,4 +21,4 @@ A Windows Task Manager–style desktop app for process management, performance m
 - Core: wrappers over WinAPI for processes, adapters, services, definition of performance monitoring interfaces
 - Monitoring: implementation of performance monitoring interfaces and process and service control interfaces using Windows API and ADL/NVML
 - Data update: single thread which calls monitors interfaces and collects data for UI update 
-- UI: Qt widgets for tables, details panes, QtCharts for charts. UI depends on core interfaces and data structs, not from Windows API implementation, so the app is easy to extension
+- UI: Qt widgets for tables, details panes, QtCharts for charts. UI depends on core interfaces and data structs, not from Windows API implementation, so the app is easy to extend
